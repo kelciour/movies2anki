@@ -213,7 +213,7 @@ def create_or_clean_dir(directory):
     print "Create dir " + directory
     os.makedirs(directory)
 
-def convert_video(input_file, ffmpeg_split_timestamps):
+def convert_video(video_file, ffmpeg_split_timestamps):
     for chunk in ffmpeg_split_timestamps:
         filename = chunk[0]
         ss = chunk[1]
@@ -221,13 +221,13 @@ def convert_video(input_file, ffmpeg_split_timestamps):
 
         print ss
         
-        call(["ffmpeg", "-ss", ss, "-i", input_file, "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(audio_id), "-c:v", "libx264",
+        call(["ffmpeg", "-ss", ss, "-i", video_file, "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(audio_id), "-c:v", "libx264",
                 "-s", "480x320", "-c:a", "libmp3lame", "-ac", "2", "-copyts", "collection.media/" + filename + ".mp4"])
-        call(["ffmpeg", "-ss", ss, "-i", input_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(audio_id), "-copyts", "collection.media/" + filename + ".mp3"])
+        call(["ffmpeg", "-ss", ss, "-i", video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(audio_id), "-copyts", "collection.media/" + filename + ".mp3"])
 
-def guess_srt_file(input_file, mask_list, default_filename):
+def guess_srt_file(video_file, mask_list, default_filename):
     for mask in mask_list:
-        glob_result = glob.glob(input_file[:-4] + mask)
+        glob_result = glob.glob(video_file[:-4] + mask)
         if len(glob_result) == 1:
             print "Found subtitle: " + glob_result[0]
             return glob_result[0]
@@ -236,7 +236,7 @@ def guess_srt_file(input_file, mask_list, default_filename):
 
 if __name__ == '__main__':
 
-    input_file = "02.Sharpes.Eagle.1993.720p.BluRay.x264-shortbrehd.mkv"
+    video_file = "02.Sharpes.Eagle.1993.720p.BluRay.x264-shortbrehd.mkv"
     deck_name = "Sharpes Rifles 02 (1993)"
 
     directory = "collection.media"
@@ -245,8 +245,8 @@ if __name__ == '__main__':
     audio_id = 3 # start from 0
 
     # Имена файлов с английскими и русскими субтитры
-    en_srt = guess_srt_file(input_file, ["*eng.srt", "*en.srt"], "en.srt")
-    ru_srt = guess_srt_file(input_file, ["*rus.srt", "*ru.srt"], "ru.srt")
+    en_srt = guess_srt_file(video_file, ["*eng.srt", "*en.srt"], "en.srt")
+    ru_srt = guess_srt_file(video_file, ["*rus.srt", "*ru.srt"], "ru.srt")
 
     out_en_srt = "out.en.srt"
     out_ru_srt = "out.ru.srt"
@@ -287,5 +287,5 @@ if __name__ == '__main__':
     create_or_clean_dir(directory)
     
     # Конвертируем видео
-    convert_video(input_file, ffmpeg_split_timestamps)
+    convert_video(video_file, ffmpeg_split_timestamps)
 
