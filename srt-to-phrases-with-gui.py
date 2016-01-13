@@ -189,6 +189,65 @@ def guess_srt_file(video_file, mask_list, default_filename):
     else:
         return default_filename
 
+def format_filename(deck_name):
+    valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+    filename = ''.join(c for c in deck_name if c in valid_chars)
+    filename = filename.replace(' ','_')
+    return filename
+
+def write_tsv_file(deck_name, en_subs, ru_subs):
+    prefix = format_filename(deck_name)
+    f_out = open(prefix + ".tsv", 'w')
+
+    ffmpeg_split_timestamps = []
+    for idx in range(len(en_subs)):
+        start_time = seconds_to_tsv_time(en_subs[idx][0])
+        end_time = seconds_to_tsv_time(en_subs[idx][1])
+
+        en_sub = en_subs[idx][2]
+        en_sub = re.sub('\n', ' ', en_sub)
+        ru_sub = ru_subs[idx][2]
+        ru_sub = re.sub('\n', ' ', ru_sub)
+
+        tag = prefix
+        sequence = str(idx + 1).zfill(3) + "_" + start_time
+        sound = prefix + "_" + start_time + "-" + end_time + ".mp3"
+        video = prefix + "_" + start_time + "-" + end_time + ".mp4"
+
+        f_out.write(tag + "\t" + sequence + "\t[sound:" + sound + "]\t[sound:" + video + "]\t")
+        f_out.write(en_sub)
+        f_out.write("\t")
+        f_out.write(ru_sub)
+        f_out.write('\n')
+
+        ffmpeg_split_timestamps.append((prefix + "_" + start_time + "-" + end_time, 
+            seconds_to_ffmpeg_time(en_subs[idx][0]), 
+            seconds_to_ffmpeg_time(en_subs[idx][1])))
+    
+    f_out.close()
+
+    return ffmpeg_split_timestamps
+
+def create_or_clean_dir(directory):
+    if os.path.exists(directory):
+        print "Remove dir " + directory
+        shutil.rmtree(directory)
+    print "Create dir " + directory
+    os.makedirs(directory)
+
+def convert_video(video_file, video_width, video_height, audio_id, ffmpeg_split_timestamps):
+    video_resolution = str(video_width) + "x" + str(video_height)
+    for chunk in ffmpeg_split_timestamps:
+        filename = chunk[0]
+        ss = chunk[1]
+        to = chunk[2]
+
+        print ss
+        
+        call(["ffmpeg", "-ss", ss, "-i", video_file, "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(audio_id), "-c:v", "libx264",
+                "-s", video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", "collection.media/" + filename + ".mp4"])
+        call(["ffmpeg", "-ss", ss, "-i", video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(audio_id), "-copyts", "collection.media/" + filename + ".mp3"])
+
 class Model(object):
     def __init__(self):
         self.video_file = ""
@@ -262,6 +321,18 @@ class Model(object):
         # Записываем русские субтитры
         print "Writing Russian subtitles..."
         write_subtitles(self.out_ru_srt, ru_subs_phrases)
+
+        # Формируем tsv файл для импорта в Anki
+        ffmpeg_split_timestamps = write_tsv_file(self.deck_name, en_subs_phrases, ru_subs_phrases)
+
+        # Создаем директорию collection.media
+        create_or_clean_dir(self.directory)
+
+        # Конвертируем видео
+        convert_video(self.video_file, self.video_width, self.video_height, self.audio_id, ffmpeg_split_timestamps)
+
+        # Готово
+        print "Done"
 
     def getTimeDelta(self):
         return self.time_delta
