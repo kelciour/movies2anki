@@ -195,9 +195,11 @@ def format_filename(deck_name):
     filename = filename.replace(' ','_')
     return filename
 
-def write_tsv_file(deck_name, en_subs, ru_subs):
+def write_tsv_file(deck_name, en_subs, ru_subs, directory):
     prefix = format_filename(deck_name)
-    f_out = open(prefix + ".tsv", 'w')
+    filename = os.path.join(directory, prefix + ".tsv")
+    
+    f_out = open(filename, 'w')
 
     ffmpeg_split_timestamps = []
     for idx in range(len(en_subs)):
@@ -228,25 +230,26 @@ def write_tsv_file(deck_name, en_subs, ru_subs):
 
     return ffmpeg_split_timestamps
 
-def create_or_clean_dir(directory):
+def create_or_clean_collection_dir(basedir):
+    directory = os.path.join(basedir, "collection.media")
     if os.path.exists(directory):
         print "Remove dir " + directory
         shutil.rmtree(directory)
     print "Create dir " + directory
     os.makedirs(directory)
 
-def convert_video(video_file, video_width, video_height, audio_id, ffmpeg_split_timestamps):
+def convert_video(video_file, video_width, video_height, audio_id, directory, ffmpeg_split_timestamps):
     video_resolution = str(video_width) + "x" + str(video_height)
     for chunk in ffmpeg_split_timestamps:
-        filename = chunk[0]
+        filename = directory + os.sep + "collection.media" + os.sep + chunk[0]
         ss = chunk[1]
         to = chunk[2]
 
         print ss
         
         call(["ffmpeg", "-ss", ss, "-i", video_file, "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(audio_id), "-c:v", "libx264",
-                "-s", video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", "collection.media/" + filename + ".mp4"])
-        call(["ffmpeg", "-ss", ss, "-i", video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(audio_id), "-copyts", "collection.media/" + filename + ".mp3"])
+                "-s", video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", filename + ".mp4"])
+        call(["ffmpeg", "-ss", ss, "-i", video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(audio_id), "-copyts", filename + ".mp3"])
 
 class Model(object):
     def __init__(self):
@@ -261,7 +264,8 @@ class Model(object):
 
         self.deck_name = ""
 
-        self.directory = "collection.media"
+        self.directory = os.getcwd()
+
         self.time_delta = 1.75
 
         self.video_width = 480
@@ -323,13 +327,13 @@ class Model(object):
         write_subtitles(self.out_ru_srt, ru_subs_phrases)
 
         # Формируем tsv файл для импорта в Anki
-        ffmpeg_split_timestamps = write_tsv_file(self.deck_name, en_subs_phrases, ru_subs_phrases)
+        ffmpeg_split_timestamps = write_tsv_file(self.deck_name, en_subs_phrases, ru_subs_phrases, self.directory)
 
         # Создаем директорию collection.media
-        create_or_clean_dir(self.directory)
+        create_or_clean_collection_dir(self.directory)
 
         # Конвертируем видео
-        convert_video(self.video_file, self.video_width, self.video_height, self.audio_id, ffmpeg_split_timestamps)
+        convert_video(self.video_file, self.video_width, self.video_height, self.audio_id, self.directory, ffmpeg_split_timestamps)
 
         # Готово
         print "Done"
@@ -357,8 +361,6 @@ class Model(object):
 
     def getMode(self):
         return self.mode
-
-
 
 class Example(QtGui.QMainWindow):
     
@@ -393,6 +395,7 @@ class Example(QtGui.QMainWindow):
         self.audioIdComboBox.currentIndexChanged.connect(self.setAudioId)
         self.subsEngButton.clicked.connect(self.showSubsEngFileDialog)
         self.subsRusButton.clicked.connect(self.showSubsRusFileDialog)
+        self.outDirButton.clicked.connect(self.showOutDirectoryDialog)
         self.deckEdit.textChanged.connect(self.setDeckName)
         self.startButton.clicked.connect(self.start)
         self.timeSpinBox.valueChanged.connect(self.setTimeDelta)
@@ -448,6 +451,14 @@ class Example(QtGui.QMainWindow):
         self.model.ru_srt = fname
 
         self.dir = os.path.dirname(fname)
+
+    def showOutDirectoryDialog(self):
+        fname = QtGui.QFileDialog.getExistingDirectory()
+
+        if len(fname) != 0:
+            self.model.directory = fname
+
+        self.outDirEdit.setText(self.model.directory)
 
     def setAudioId(self):
         self.model.audio_id = self.audioIdComboBox.currentIndex()
@@ -548,6 +559,7 @@ class Example(QtGui.QMainWindow):
 
         self.outDirButton = QtGui.QPushButton("Directory...")
         self.outDirEdit = QtGui.QLineEdit()
+        self.outDirEdit.setText(self.model.directory)
 
         hbox = QtGui.QHBoxLayout()
         hbox.addWidget(self.outDirButton)
