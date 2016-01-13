@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import codecs
 import json
 import glob
 import os
@@ -154,25 +153,32 @@ def sync_subtitles(en_subs, ru_subs):
 
     return subs
 
-def change_subtitles_duration(subs):
+def change_subtitles_duration(subs, shift_start, shift_end, mode):
     for idx in range(1, len(subs)):
         (start_time, end_time, subtitle) = subs[idx]
         (prev_start_time, prev_end_time, prev_subtitle) = subs[idx - 1]
-        if start_time - prev_end_time > 0.25:
-            subs[idx] = (start_time - 0.25, end_time, subtitle)
-            subs[idx - 1] = (prev_start_time, start_time - 0.25, prev_subtitle)
+
+        subs[idx] = (start_time - shift_start, end_time, subtitle)
+        if mode == "Movie":
+            subs[idx - 1] = (prev_start_time, start_time - shift_start, prev_subtitle)
+        elif mode == "Phrases":
+            subs[idx] = (start_time - shift_start, end_time + shift_end, subtitle)
+
+    if mode == "Movie":
+        (start_time, end_time, subtitle) = subs[0]
+        if (start_time > 5):
+            subs[0] = (start_time - shift_start, end_time, subtitle)
+            subs.insert(0, (0.0, start_time - shift_start, ""))
         else:
-            subs[idx - 1] = (prev_start_time, start_time, prev_subtitle) # TODO if will be implemented splitting long phrases
+            subs[0] = (0.0, end_time, subtitle)
 
-    (start_time, end_time, subtitle) = subs[0]
-    if (start_time > 5):
-        subs[0] = (start_time - 0.25, end_time, subtitle)
-        subs.insert(0, (0.0, start_time, ""))
-    else:
-        subs[0] = (0.0, end_time, subtitle)
+        (start_time, end_time, subtitle) = subs[-1]
+        subs[-1] = (start_time, end_time + 600, subtitle)
 
-    (start_time, end_time, subtitle) = subs[-1]
-    subs[-1] = (start_time, end_time + 600, subtitle)
+    elif mode == "Phrases":
+        (start_time, end_time, subtitle) = subs[0]
+        subs[0] = (start_time - shift_start, end_time + shift_end, subtitle)
+
 
 def guess_srt_file(video_file, mask_list, default_filename):
     for mask in mask_list:
@@ -188,8 +194,8 @@ class Model(object):
         self.video_file = ""
         self.audio_id = 0
 
-        self.en_srt = "en.srt"
-        self.ru_srt = "ru.srt"
+        self.en_srt = ""
+        self.ru_srt = ""
 
         self.out_en_srt = "out.en.srt"
         self.out_ru_srt = "out.ru.srt"
@@ -199,14 +205,28 @@ class Model(object):
         self.directory = "collection.media"
         self.time_delta = 1.75
 
+        self.video_width = 480
+        self.video_height = 320
+
+        self.shift_start = 0.25
+        self.shift_end = 0.25
+
+        self.mode = "Movie"
+
     def run(self):
         print "--------------------------"
         print "Video file: %s" % self.video_file
         print "Audio id: %s" % self.audio_id
         print "English subtitles: %s" % self.en_srt
         print "Russian subtitles: %s" % self.ru_srt
+        print "Output Directory: %s" % self.directory
         print "Deck name: %s" % self.deck_name
         print "Time delta: %s" % self.time_delta
+        print "Video width: %s" % self.video_width
+        print "Video height: %s" % self.video_height
+        print "Shift start: %s" % self.shift_start
+        print "Shift end: %s" % self.shift_end
+        print "Mode: %s" % self.mode
         print "--------------------------"
 
         # Загружаем английские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
@@ -229,11 +249,11 @@ class Model(object):
 
         # Меняем длительность фраз в английских субтитрах
         print "Changing duration English subtitles..."
-        change_subtitles_duration(en_subs_phrases)
+        change_subtitles_duration(en_subs_phrases, self.shift_start, self.shift_end, self.mode)
 
         # Меняем длительность фраз в русских субтитрах
         print "Changing duration Russian subtitles..."
-        change_subtitles_duration(ru_subs_phrases)
+        change_subtitles_duration(ru_subs_phrases, self.shift_start, self.shift_end, self.mode)
 
         # Записываем английские субтитры
         print "Writing English subtitles..."
@@ -243,8 +263,29 @@ class Model(object):
         print "Writing Russian subtitles..."
         write_subtitles(self.out_ru_srt, ru_subs_phrases)
 
-        # Готово
-        print "Done"
+    def getTimeDelta(self):
+        return self.time_delta
+
+    def getVideoWidth(self):
+        return self.video_width
+
+    def getVideoHeight(self):
+        return self.video_height
+
+    def getShiftStart(self):
+        return self.shift_start * 1000
+
+    def getShiftEnd(self):
+        return self.shift_end * 1000
+
+    def setShiftStart(self, value):
+        self.shift_start = value / 1000.0
+
+    def setShiftEnd(self, value):
+        self.shift_end = value / 1000.0
+
+    def getMode(self):
+        return self.mode
 
 
 
@@ -264,64 +305,43 @@ class Example(QtGui.QMainWindow):
 
         vbox = QtGui.QVBoxLayout()
 
-        self.videoButton = QtGui.QPushButton("Video...")
-        self.videoEdit = QtGui.QLineEdit()
-        self.audioIdComboBox = QtGui.QComboBox()
-
+        # ---------------------------------------------------
+        filesGroup = self.createFilesGroup()
+        vbox.addWidget(filesGroup)
+        # ---------------------------------------------------
+        outputGroup = self.createOutputGroup()
+        vbox.addWidget(outputGroup)
+        # ---------------------------------------------------
+        optionsGroup = self.createOptionsGroup()
+        vbox.addWidget(optionsGroup)
+        # ---------------------------------------------------
+        bottomGroup = self.createBottomGroup()
+        vbox.addLayout(bottomGroup)
+        # ---------------------------------------------------
         self.videoButton.clicked.connect(self.showVideoFileDialog)
         self.audioIdComboBox.currentIndexChanged.connect(self.setAudioId)
-
-        hbox = QtGui.QHBoxLayout()
-        hbox.addWidget(self.videoButton)
-        hbox.addWidget(self.videoEdit)
-        hbox.addWidget(self.audioIdComboBox)
-
-        vbox.addLayout(hbox)
-
-        self.subsEngButton = QtGui.QPushButton("Eng Subs...")
-        self.subsEngEdit = QtGui.QLineEdit()
-
         self.subsEngButton.clicked.connect(self.showSubsEngFileDialog)
-
-        hbox = QtGui.QHBoxLayout()
-        hbox.addWidget(self.subsEngButton)
-        hbox.addWidget(self.subsEngEdit)
-
-        vbox.addLayout(hbox)
-
-        self.subsRusButton = QtGui.QPushButton("Rus Subs...")
-        self.subsRusEdit = QtGui.QLineEdit()
-
         self.subsRusButton.clicked.connect(self.showSubsRusFileDialog)
-
-        hbox = QtGui.QHBoxLayout()
-        hbox.addWidget(self.subsRusButton)
-        hbox.addWidget(self.subsRusEdit)
-
-        vbox.addLayout(hbox)
-
-        self.deckLabel = QtGui.QLabel('Name for deck:')
-        self.deckEdit = QtGui.QLineEdit()
-        self.startButton = QtGui.QPushButton("Go!")
-
-        self.startButton.clicked.connect(self.start)
         self.deckEdit.textChanged.connect(self.setDeckName)
-
-        hbox = QtGui.QHBoxLayout()
-        hbox.addWidget(self.deckLabel)
-        hbox.addWidget(self.deckEdit)
-        hbox.addWidget(self.startButton)
-
-        vbox.addLayout(hbox)
-
+        self.startButton.clicked.connect(self.start)
+        self.timeSpinBox.valueChanged.connect(self.setTimeDelta)
+        self.widthSpinBox.valueChanged.connect(self.setVideoWidth)
+        self.heightSpinBox.valueChanged.connect(self.setVideoHeight)
+        self.startSpinBox.valueChanged.connect(self.setShiftStart)
+        self.endSpinBox.valueChanged.connect(self.setShiftEnd)
+        self.movieRadioButton.toggled.connect(self.setMovieMode)
+        self.phrasesRadioButton.toggled.connect(self.setPhrasesMode)
+        # ---------------------------------------------------
         vbox.addStretch(1)
+
+
 
         w.setLayout(vbox)
         
         self.setCentralWidget(w)
 
         self.adjustSize()
-        self.resize(600, self.height())
+        # self.resize(600, self.height())
         self.setWindowTitle('movies2anki')
         self.show()
 
@@ -336,13 +356,11 @@ class Example(QtGui.QMainWindow):
         self.audioIdComboBox.addItems(self.audio_streams)
 
         # Try to find subtitles
-        if len(self.subsEngEdit.text()) == 0:
-            self.model.en_srt = guess_srt_file(fname, ["*eng.srt", "*en.srt"], "")
-            self.subsEngEdit.setText(self.model.en_srt)
+        self.model.en_srt = guess_srt_file(fname, ["*eng.srt", "*en.srt"], "")
+        self.subsEngEdit.setText(self.model.en_srt)
 
-        if len(self.subsRusEdit.text()) == 0:
-            self.model.ru_srt = guess_srt_file(fname, ["*rus.srt", "*ru.srt"], "")
-            self.subsRusEdit.setText(self.model.ru_srt)
+        self.model.ru_srt = guess_srt_file(fname, ["*rus.srt", "*ru.srt"], "")
+        self.subsRusEdit.setText(self.model.ru_srt)
 
         self.dir = os.path.dirname(fname)
 
@@ -359,9 +377,6 @@ class Example(QtGui.QMainWindow):
         self.model.ru_srt = fname
 
         self.dir = os.path.dirname(fname)
-
-    def setDeckName(self):
-        self.model.deck_name = self.deckEdit.text()
 
     def setAudioId(self):
         self.model.audio_id = self.audioIdComboBox.currentIndex()
@@ -390,13 +405,251 @@ class Example(QtGui.QMainWindow):
 
             self.audio_streams.append(stream)
 
+    def setVideoWidth(self):
+        self.model.video_width = self.widthSpinBox.value()
+
+    def setVideoHeight(self):
+        self.model.video_height = self.heightSpinBox.value()
+
+    def setShiftStart(self):
+        self.model.setShiftStart(self.startSpinBox.value())
+
+    def setShiftEnd(self):
+        self.model.setShiftEnd(self.endSpinBox.value())
+
+    def setTimeDelta(self):
+        self.model.time_delta = self.timeSpinBox.value()
+
+    def setMovieMode(self):
+        self.model.mode = "Movie"
+
+    def setPhrasesMode(self):
+        self.model.mode = "Phrases"
+
+    def setDeckName(self):
+        self.model.deck_name = self.deckEdit.text()
+
     def start(self):
         self.model.run()
-        
+
+    def createFilesGroup(self):
+        groupBox = QtGui.QGroupBox("Files:")
+
+        vbox = QtGui.QVBoxLayout()
+
+        self.videoButton = QtGui.QPushButton("Video...")
+        self.videoEdit = QtGui.QLineEdit()
+        self.audioIdComboBox = QtGui.QComboBox()
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.videoButton)
+        hbox.addWidget(self.videoEdit)
+        hbox.addWidget(self.audioIdComboBox)
+
+        vbox.addLayout(hbox)
+
+        self.subsEngButton = QtGui.QPushButton("Eng Subs...")
+        self.subsEngEdit = QtGui.QLineEdit()
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.subsEngButton)
+        hbox.addWidget(self.subsEngEdit)
+
+        vbox.addLayout(hbox)
+
+        self.subsRusButton = QtGui.QPushButton("Rus Subs...")
+        self.subsRusEdit = QtGui.QLineEdit()
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.subsRusButton)
+        hbox.addWidget(self.subsRusEdit)
+
+        vbox.addLayout(hbox)
+
+        groupBox.setLayout(vbox)
+
+        return groupBox
+
+    def createOutputGroup(self):
+        groupBox = QtGui.QGroupBox("Output:")
+
+        vbox = QtGui.QVBoxLayout()
+
+        self.outDirButton = QtGui.QPushButton("Directory...")
+        self.outDirEdit = QtGui.QLineEdit()
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.outDirButton)
+        hbox.addWidget(self.outDirEdit)
+
+        vbox.addLayout(hbox)
+
+        groupBox.setLayout(vbox)
+
+        return groupBox
+
+    def createVideoDimensionsGroup(self):
+        groupBox = QtGui.QGroupBox("Video Dimensions:")
+
+        layout = QtGui.QFormLayout()
+
+        self.widthSpinBox = QtGui.QSpinBox()
+        self.widthSpinBox.setRange(16, 2048)
+        self.widthSpinBox.setSingleStep(2)
+        self.widthSpinBox.setValue(self.model.getVideoWidth())
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.widthSpinBox)
+        hbox.addWidget(QtGui.QLabel("px"))
+
+        layout.addRow(QtGui.QLabel("Width:"), hbox)
+
+        self.heightSpinBox = QtGui.QSpinBox()
+        self.heightSpinBox.setRange(16, 2048)
+        self.heightSpinBox.setSingleStep(2)
+        self.heightSpinBox.setValue(self.model.getVideoHeight())
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.heightSpinBox)
+        hbox.addWidget(QtGui.QLabel("px"))
+
+        layout.addRow(QtGui.QLabel("Height:"), hbox)
+
+        groupBox.setLayout(layout)
+
+        return groupBox
+
+    def createPadTimingsGroup(self):
+        groupBox = QtGui.QGroupBox("Pad Timings:")
+
+        layout = QtGui.QFormLayout()
+
+        self.startSpinBox = QtGui.QSpinBox()
+        self.startSpinBox.setRange(-9999, 9999)
+        self.startSpinBox.setValue(self.model.getShiftStart())
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.startSpinBox)
+        hbox.addWidget(QtGui.QLabel("ms"))
+
+        layout.addRow(QtGui.QLabel("Start:"), hbox)
+
+        self.endSpinBox = QtGui.QSpinBox()
+        self.endSpinBox.setRange(-9999, 9999)
+        self.endSpinBox.setValue(self.model.getShiftEnd())
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.endSpinBox)
+        hbox.addWidget(QtGui.QLabel("ms"))
+
+        layout.addRow(QtGui.QLabel("End:"), hbox)
+
+        groupBox.setLayout(layout)
+
+        return groupBox
+
+    def createGapPhrasesGroup(self):
+        groupBox = QtGui.QGroupBox("Gap between Phrases:")
+
+        self.timeSpinBox = QtGui.QDoubleSpinBox()
+        self.timeSpinBox.setRange(0, 60.0)
+        self.timeSpinBox.setSingleStep(0.25)
+        self.timeSpinBox.setValue(self.model.getTimeDelta())
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.timeSpinBox)
+        hbox.addWidget(QtGui.QLabel("sec"))
+
+        groupBox.setLayout(hbox)
+
+        return groupBox
+
+    def createSplitPhrasesGroup(self):
+        groupBox = QtGui.QGroupBox("Split Long Phrases:")
+        groupBox.setCheckable(True)
+        groupBox.setChecked(False)
+
+        self.splitPhrasesSpinBox = QtGui.QSpinBox()
+        self.splitPhrasesSpinBox.setRange(0, 6000)
+        self.splitPhrasesSpinBox.setSingleStep(10)
+        self.splitPhrasesSpinBox.setValue(60)
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.splitPhrasesSpinBox)
+        hbox.addWidget(QtGui.QLabel("sec"))
+
+        groupBox.setLayout(hbox)
+
+        return groupBox
+
+    def createModeOptionsGroup(self):
+        vbox = QtGui.QVBoxLayout()
+
+        self.movieRadioButton = QtGui.QRadioButton("Movie")
+        self.phrasesRadioButton = QtGui.QRadioButton("Phrases")
+
+        if self.model.getMode() == 'Phrases':
+            self.phrasesRadioButton.setChecked(True)
+        else:
+            self.movieRadioButton.setChecked(True)
+
+        vbox.addWidget(self.movieRadioButton)
+        vbox.addWidget(self.phrasesRadioButton)
+
+        return vbox
+
+    def createSubtitlePhrasesGroup(self):
+        groupBox = QtGui.QGroupBox("General Settings:")
+
+        layout = QtGui.QHBoxLayout()
+
+        layout.addWidget(self.createGapPhrasesGroup())
+        layout.addWidget(self.createSplitPhrasesGroup())
+        layout.addLayout(self.createModeOptionsGroup())
+
+        groupBox.setLayout(layout)
+
+        return groupBox
+
+    def createOptionsGroup(self):
+        groupBox = QtGui.QGroupBox("Options:")
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.createVideoDimensionsGroup())
+        hbox.addWidget(self.createPadTimingsGroup())
+        hbox.addWidget(self.createSubtitlePhrasesGroup())
+
+        groupBox.setLayout(hbox)
+
+        return groupBox
+
+    def createBottomGroup(self):
+        groupBox = QtGui.QGroupBox("Name for deck:")
+
+        self.deckEdit = QtGui.QLineEdit()
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.deckEdit)
+
+        groupBox.setLayout(hbox)
+
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(groupBox)
+
+        vbox = QtGui.QVBoxLayout()
+        self.previewButton = QtGui.QPushButton("Preview...")
+        self.startButton = QtGui.QPushButton("Go!")
+        vbox.addWidget(self.previewButton)
+        vbox.addWidget(self.startButton)
+
+        hbox.addLayout(vbox)
+
+        return hbox
+
 def main():
     
     app = QtGui.QApplication(sys.argv)
-    main = Example()
+    ex = Example()
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
