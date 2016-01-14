@@ -236,19 +236,6 @@ def create_or_clean_collection_dir(basedir):
     print "Create dir " + directory
     os.makedirs(directory)
 
-def convert_video(video_file, video_width, video_height, audio_id, directory, ffmpeg_split_timestamps):
-    video_resolution = str(video_width) + "x" + str(video_height)
-    for chunk in ffmpeg_split_timestamps:
-        filename = directory + os.sep + "collection.media" + os.sep + chunk[0]
-        ss = chunk[1]
-        to = chunk[2]
-
-        print ss
-        
-        call(["ffmpeg", "-ss", ss, "-i", video_file, "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(audio_id), "-c:v", "libx264",
-                "-s", video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", filename + ".mp4"])
-        call(["ffmpeg", "-ss", ss, "-i", video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(audio_id), "-copyts", filename + ".mp3"])
-
 class Model(object):
     def __init__(self):
         self.video_file = ""
@@ -274,7 +261,7 @@ class Model(object):
 
         self.mode = "Movie"
 
-    def run(self):
+    def create_subtitles(self):
         print "--------------------------"
         print "Video file: %s" % self.video_file
         print "Audio id: %s" % self.audio_id
@@ -296,8 +283,8 @@ class Model(object):
         print "English subtitles: %s" % len(en_subs)
 
         # Разбиваем субтитры на фразы
-        en_subs_phrases = convert_into_phrases(en_subs, self.time_delta)
-        print "English phrases: %s" % len(en_subs_phrases)
+        self.en_subs_phrases = convert_into_phrases(en_subs, self.time_delta)
+        print "English phrases: %s" % len(self.en_subs_phrases)
 
         # Загружаем русские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
         print "Loading Russian subtitles..."
@@ -306,40 +293,57 @@ class Model(object):
 
         # Синхронизируем русские субтитры с получившимися английскими субтитрами
         print "Syncing Russian subtitles with English phrases..."
-        ru_subs_phrases = sync_subtitles(en_subs_phrases, ru_subs)
+        self.ru_subs_phrases = sync_subtitles(self.en_subs_phrases, ru_subs)
 
         # Добавляем смещения к каждой фразе
         print "Adding Pad Timings between English phrases..."
-        add_pad_timings_between_phrases(en_subs_phrases, self.shift_start, self.shift_end)
+        add_pad_timings_between_phrases(self.en_subs_phrases, self.shift_start, self.shift_end)
 
         print "Adding Pad Timings between Russian phrases..."
-        add_pad_timings_between_phrases(ru_subs_phrases, self.shift_start, self.shift_end)
+        add_pad_timings_between_phrases(self.ru_subs_phrases, self.shift_start, self.shift_end)
 
         if self.mode == "Movie":
             # Меняем длительность фраз в английских субтитрах
             print "Changing duration English subtitles..."
-            change_subtitles_ending_time(en_subs_phrases)
+            change_subtitles_ending_time(self.en_subs_phrases)
 
             # Меняем длительность фраз в русских субтитрах
             print "Changing duration Russian subtitles..."
-            change_subtitles_ending_time(ru_subs_phrases)
+            change_subtitles_ending_time(self.ru_subs_phrases)
 
         # Записываем английские субтитры
         print "Writing English subtitles..."
-        write_subtitles(self.out_en_srt, en_subs_phrases)
+        write_subtitles(self.out_en_srt, self.en_subs_phrases)
 
         # Записываем русские субтитры
         print "Writing Russian subtitles..."
-        write_subtitles(self.out_ru_srt, ru_subs_phrases)
+        write_subtitles(self.out_ru_srt, self.ru_subs_phrases)
 
+    def create_tsv_file(self):
         # Формируем tsv файл для импорта в Anki
-        ffmpeg_split_timestamps = write_tsv_file(self.deck_name, en_subs_phrases, ru_subs_phrases, self.directory)
+        self.ffmpeg_split_timestamps = write_tsv_file(self.deck_name, self.en_subs_phrases, self.ru_subs_phrases, self.directory)
 
+        return len(self.ffmpeg_split_timestamps)
+
+    def create_video_files(self):
         # Создаем директорию collection.media
         create_or_clean_collection_dir(self.directory)
 
         # Конвертируем видео
-        convert_video(self.video_file, self.video_width, self.video_height, self.audio_id, self.directory, ffmpeg_split_timestamps)
+        self.convert_video()
+
+    def convert_video(self):
+        video_resolution = str(self.video_width) + "x" + str(self.video_height)
+        for chunk in self.ffmpeg_split_timestamps:
+            filename = self.directory + os.sep + "collection.media" + os.sep + chunk[0]
+            ss = chunk[1]
+            to = chunk[2]
+
+            print ss
+            
+            call(["ffmpeg", "-ss", ss, "-i", self.video_file, "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(self.audio_id), "-c:v", "libx264",
+                    "-s", video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", filename + ".mp4"])
+            call(["ffmpeg", "-ss", ss, "-i", self.video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.audio_id), "-copyts", filename + ".mp3"])
 
         # Готово
         print "Done"
@@ -432,6 +436,7 @@ class Example(QtGui.QMainWindow):
         self.audioIdComboBox.clear()
         self.getAudioStreams(fname)
         self.audioIdComboBox.addItems(self.audio_streams)
+        self.tryToSetEngAudio()
 
         # Try to find subtitles
         self.model.en_srt = guess_srt_file(fname, ["*eng.srt", "*en.srt"], "")
@@ -463,6 +468,15 @@ class Example(QtGui.QMainWindow):
             self.model.directory = fname
 
         self.outDirEdit.setText(self.model.directory)
+
+    def tryToSetEngAudio(self):
+        eng_id = 0
+        for cur_id in range(len(self.audio_streams)):
+            if self.audio_streams[cur_id].find("[eng]") != -1:
+                eng_id = cur_id
+                break
+
+        self.audioIdComboBox.setCurrentIndex(eng_id)
 
     def setAudioId(self):
         self.model.audio_id = self.audioIdComboBox.currentIndex()
@@ -516,7 +530,14 @@ class Example(QtGui.QMainWindow):
         self.model.deck_name = self.deckEdit.text()
 
     def start(self):
-        self.model.run()
+        # subtitles
+        self.model.create_subtitles()
+
+        # tsv file
+        num_cards = self.model.create_tsv_file()
+
+        # video & audio files
+        self.model.create_video_files()
 
     def createFilesGroup(self):
         groupBox = QtGui.QGroupBox("Files:")
