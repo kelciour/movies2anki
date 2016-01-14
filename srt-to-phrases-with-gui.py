@@ -9,7 +9,7 @@ import shutil
 import string
 import sys
 
-from PySide import QtGui
+from PySide import QtCore, QtGui
 from subprocess import check_output
 from subprocess import call
 
@@ -323,31 +323,6 @@ class Model(object):
         # Формируем tsv файл для импорта в Anki
         self.ffmpeg_split_timestamps = write_tsv_file(self.deck_name, self.en_subs_phrases, self.ru_subs_phrases, self.directory)
 
-        return len(self.ffmpeg_split_timestamps)
-
-    def create_video_files(self):
-        # Создаем директорию collection.media
-        create_or_clean_collection_dir(self.directory)
-
-        # Конвертируем видео
-        self.convert_video()
-
-    def convert_video(self):
-        video_resolution = str(self.video_width) + "x" + str(self.video_height)
-        for chunk in self.ffmpeg_split_timestamps:
-            filename = self.directory + os.sep + "collection.media" + os.sep + chunk[0]
-            ss = chunk[1]
-            to = chunk[2]
-
-            print ss
-            
-            call(["ffmpeg", "-ss", ss, "-i", self.video_file, "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(self.audio_id), "-c:v", "libx264",
-                    "-s", video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", filename + ".mp4"])
-            call(["ffmpeg", "-ss", ss, "-i", self.video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.audio_id), "-copyts", filename + ".mp3"])
-
-        # Готово
-        print "Done"
-
     def getTimeDelta(self):
         return self.time_delta
 
@@ -371,6 +346,46 @@ class Model(object):
 
     def getMode(self):
         return self.mode
+
+class VideoWorker(QtCore.QThread):
+
+    updateProgress = QtCore.Signal(int)
+    updateTitle = QtCore.Signal(str)
+    finished = QtCore.Signal()
+
+    def __init__(self, data):
+        QtCore.QThread.__init__(self)
+
+        self.model = data
+        self.canceled = False
+
+    def cancel(self):
+      self.canceled = True
+
+    def run(self):
+        self.video_resolution = str(self.model.video_width) + "x" + str(self.model.video_height)
+
+        for i in range(len(self.model.ffmpeg_split_timestamps)):
+            if self.canceled:
+                break
+
+            chunk = self.model.ffmpeg_split_timestamps[i]
+            
+            self.updateProgress.emit(i)
+                        
+            filename = self.model.directory + os.sep + "collection.media" + os.sep + chunk[0]
+            ss = chunk[1]
+            to = chunk[2]
+
+            print ss
+            self.updateTitle.emit(ss)
+            
+            call(["ffmpeg", "-ss", ss, "-i", self.model.video_file, "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264",
+                    "-s", self.video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", filename + ".mp4"])
+            call(["ffmpeg", "-ss", ss, "-i", self.model.video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.model.audio_id), "-copyts", filename + ".mp3"])
+
+        print "Done"
+        self.finished.emit()
 
 class Example(QtGui.QMainWindow):
     
@@ -534,11 +549,50 @@ class Example(QtGui.QMainWindow):
         self.model.create_subtitles()
 
         # tsv file
-        num_cards = self.model.create_tsv_file()
+        self.model.create_tsv_file()
+
+        # create or remove & create colletion.media directory
+        create_or_clean_collection_dir(self.model.directory)
 
         # video & audio files
-        self.model.create_video_files()
+        self.convert_video()
 
+    def setProgress(self, progress):
+        self.progressDialog.setValue(progress)
+
+    def setTitle(self, title):
+        self.progressDialog.setLabelText(title)
+
+    def closeProgressDialog(self):
+        self.progressDialog.close()
+
+    def cancelProgressDialog(self):
+        self.worker.cancel()
+
+    def convert_video(self):
+        self.progressDialog = QtGui.QProgressDialog(self)
+
+        self.progressDialog.setCancelButtonText("Cancel")
+        self.progressDialog.setRange(0, len(self.model.ffmpeg_split_timestamps))
+        self.progressDialog.setWindowTitle("Generate Video & Audio")
+        self.progressDialog.setMinimumDuration(0)
+
+        progress_bar = QtGui.QProgressBar(self.progressDialog)
+        progress_bar.setAlignment(QtCore.Qt.AlignCenter)
+        self.progressDialog.setBar(progress_bar)
+
+        self.progressDialog.resize(300, self.progressDialog.height());
+
+        self.worker = VideoWorker(self.model)
+        self.worker.updateProgress.connect(self.setProgress)
+        self.worker.updateTitle.connect(self.setTitle)
+        self.worker.finished.connect(self.closeProgressDialog)
+
+        self.progressDialog.canceled.connect(self.cancelProgressDialog)
+        self.progressDialog.setModal(True)
+
+        self.worker.start()
+        
     def createFilesGroup(self):
         groupBox = QtGui.QGroupBox("Files:")
 
