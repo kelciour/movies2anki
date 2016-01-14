@@ -153,32 +153,30 @@ def sync_subtitles(en_subs, ru_subs):
 
     return subs
 
-def change_subtitles_duration(subs, shift_start, shift_end, mode):
+def add_pad_timings_between_phrases(subs, shift_start, shift_end):
+    for idx in range(len(subs)):
+        (start_time, end_time, subtitle) = subs[idx]
+        subs[idx] = (start_time - shift_start, end_time + shift_end, subtitle)
+    
+    (start_time, end_time, subtitle) = subs[0]
+    if start_time < 0:
+        subs[0] = (0.0, end_time, subtitle)
+
+def change_subtitles_ending_time(subs):
     for idx in range(1, len(subs)):
         (start_time, end_time, subtitle) = subs[idx]
         (prev_start_time, prev_end_time, prev_subtitle) = subs[idx - 1]
 
-        subs[idx] = (start_time - shift_start, end_time, subtitle)
-        if mode == "Movie":
-            subs[idx - 1] = (prev_start_time, start_time - shift_start, prev_subtitle)
-        elif mode == "Phrases":
-            subs[idx] = (start_time - shift_start, end_time + shift_end, subtitle)
+        subs[idx - 1] = (prev_start_time, start_time, prev_subtitle)
 
-    if mode == "Movie":
-        (start_time, end_time, subtitle) = subs[0]
-        if (start_time > 5):
-            subs[0] = (start_time - shift_start, end_time, subtitle)
-            subs.insert(0, (0.0, start_time - shift_start, ""))
-        else:
-            subs[0] = (0.0, end_time, subtitle)
+    (start_time, end_time, subtitle) = subs[0]
+    if start_time > 5:
+        subs.insert(0, (0.0, start_time, ""))
+    else:
+        subs[0] = (0.0, end_time, subtitle)
 
-        (start_time, end_time, subtitle) = subs[-1]
-        subs[-1] = (start_time, end_time + 600, subtitle)
-
-    elif mode == "Phrases":
-        (start_time, end_time, subtitle) = subs[0]
-        subs[0] = (start_time - shift_start, end_time + shift_end, subtitle)
-
+    (start_time, end_time, subtitle) = subs[-1]
+    subs[-1] = (start_time, end_time + 600, subtitle)
 
 def guess_srt_file(video_file, mask_list, default_filename):
     for mask in mask_list:
@@ -310,13 +308,21 @@ class Model(object):
         print "Syncing Russian subtitles with English phrases..."
         ru_subs_phrases = sync_subtitles(en_subs_phrases, ru_subs)
 
-        # Меняем длительность фраз в английских субтитрах
-        print "Changing duration English subtitles..."
-        change_subtitles_duration(en_subs_phrases, self.shift_start, self.shift_end, self.mode)
+        # Добавляем смещения к каждой фразе
+        print "Adding Pad Timings between English phrases..."
+        add_pad_timings_between_phrases(en_subs_phrases, self.shift_start, self.shift_end)
 
-        # Меняем длительность фраз в русских субтитрах
-        print "Changing duration Russian subtitles..."
-        change_subtitles_duration(ru_subs_phrases, self.shift_start, self.shift_end, self.mode)
+        print "Adding Pad Timings between Russian phrases..."
+        add_pad_timings_between_phrases(ru_subs_phrases, self.shift_start, self.shift_end)
+
+        if self.mode == "Movie":
+            # Меняем длительность фраз в английских субтитрах
+            print "Changing duration English subtitles..."
+            change_subtitles_ending_time(en_subs_phrases)
+
+            # Меняем длительность фраз в русских субтитрах
+            print "Changing duration Russian subtitles..."
+            change_subtitles_ending_time(ru_subs_phrases)
 
         # Записываем английские субтитры
         print "Writing English subtitles..."
@@ -408,8 +414,6 @@ class Example(QtGui.QMainWindow):
         # ---------------------------------------------------
         vbox.addStretch(1)
 
-
-
         w.setLayout(vbox)
         
         self.setCentralWidget(w)
@@ -453,7 +457,7 @@ class Example(QtGui.QMainWindow):
         self.dir = os.path.dirname(fname)
 
     def showOutDirectoryDialog(self):
-        fname = QtGui.QFileDialog.getExistingDirectory()
+        fname = QtGui.QFileDialog.getExistingDirectory(dir = self.dir)
 
         if len(fname) != 0:
             self.model.directory = fname
