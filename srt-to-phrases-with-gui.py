@@ -351,7 +351,7 @@ class VideoWorker(QtCore.QThread):
 
     updateProgress = QtCore.Signal(int)
     updateTitle = QtCore.Signal(str)
-    finished = QtCore.Signal()
+    jobFinished = QtCore.Signal()
 
     def __init__(self, data):
         QtCore.QThread.__init__(self)
@@ -385,8 +385,11 @@ class VideoWorker(QtCore.QThread):
                     "-s", self.video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", filename + ".mp4"])
             call(["ffmpeg", "-ss", ss, "-i", self.model.video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.model.audio_id), "-copyts", filename + ".mp3"])
 
+        if not self.canceled:
+            self.updateProgress.emit(100)
+            self.jobFinished.emit()
+
         print "Done"
-        self.finished.emit()
 
 class Example(QtGui.QMainWindow):
     
@@ -564,8 +567,9 @@ class Example(QtGui.QMainWindow):
     def setTitle(self, title):
         self.progressDialog.setLabelText(title)
 
-    def closeProgressDialog(self):
+    def finishProgressDialog(self):
         self.progressDialog.close()
+        QtGui.QMessageBox.information(self, "movie2anki", "Processing completed.")
 
     def cancelProgressDialog(self):
         self.worker.cancel()
@@ -584,7 +588,7 @@ class Example(QtGui.QMainWindow):
         self.worker = VideoWorker(self.model)
         self.worker.updateProgress.connect(self.setProgress)
         self.worker.updateTitle.connect(self.setTitle)
-        self.worker.finished.connect(self.closeProgressDialog)
+        self.worker.jobFinished.connect(self.finishProgressDialog)
 
         self.progressDialog.canceled.connect(self.cancelProgressDialog)
         self.progressDialog.setFixedSize(300, self.progressDialog.height())
