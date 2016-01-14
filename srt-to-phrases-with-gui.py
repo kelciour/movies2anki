@@ -365,13 +365,14 @@ class VideoWorker(QtCore.QThread):
     def run(self):
         self.video_resolution = str(self.model.video_width) + "x" + str(self.model.video_height)
 
-        for i in range(len(self.model.ffmpeg_split_timestamps)):
+        num_files = len(self.model.ffmpeg_split_timestamps)
+        for i in range(num_files):
             if self.canceled:
                 break
 
             chunk = self.model.ffmpeg_split_timestamps[i]
             
-            self.updateProgress.emit(i)
+            self.updateProgress.emit((i * 1.0 / num_files) * 100)
                         
             filename = self.model.directory + os.sep + "collection.media" + os.sep + chunk[0]
             ss = chunk[1]
@@ -572,16 +573,13 @@ class Example(QtGui.QMainWindow):
     def convert_video(self):
         self.progressDialog = QtGui.QProgressDialog(self)
 
-        self.progressDialog.setCancelButtonText("Cancel")
-        self.progressDialog.setRange(0, len(self.model.ffmpeg_split_timestamps))
         self.progressDialog.setWindowTitle("Generate Video & Audio")
+        self.progressDialog.setCancelButtonText("Cancel")
         self.progressDialog.setMinimumDuration(0)
 
         progress_bar = QtGui.QProgressBar(self.progressDialog)
         progress_bar.setAlignment(QtCore.Qt.AlignCenter)
         self.progressDialog.setBar(progress_bar)
-
-        self.progressDialog.resize(300, self.progressDialog.height());
 
         self.worker = VideoWorker(self.model)
         self.worker.updateProgress.connect(self.setProgress)
@@ -589,6 +587,7 @@ class Example(QtGui.QMainWindow):
         self.worker.finished.connect(self.closeProgressDialog)
 
         self.progressDialog.canceled.connect(self.cancelProgressDialog)
+        self.progressDialog.setFixedSize(300, self.progressDialog.height())
         self.progressDialog.setModal(True)
 
         self.worker.start()
