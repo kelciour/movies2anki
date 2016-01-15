@@ -8,6 +8,7 @@ import re
 import shutil
 import string
 import sys
+import time
 
 from PySide import QtCore, QtGui
 from subprocess import check_output
@@ -203,8 +204,9 @@ def format_filename(deck_name):
     filename = filename.replace(' ','_')
     return filename
 
-def create_or_clean_collection_dir(basedir):
-    directory = os.path.join(basedir, "collection.media")
+def create_or_clean_collection_dir(basedir, deck_name):
+    prefix = format_filename(deck_name)
+    directory = os.path.join(basedir, prefix + ".media")
     if os.path.exists(directory):
         print "Remove dir " + directory
         shutil.rmtree(directory)
@@ -256,6 +258,9 @@ class Model(object):
         return file_content
 
     def load_subtitle(self, filename):
+        if len(filename) == 0:
+            return []
+
         file_content = open(filename, 'r').read()
         if file_content[:3]=='\xef\xbb\xbf': # with bom
             file_content = file_content[3:]
@@ -344,6 +349,10 @@ class Model(object):
         print "Encoding: %s" % self.sub_encoding 
         print "English subtitles: %s" % len(en_subs)
 
+        if len(en_subs) == 0:
+            print "Error: English subtitles can't be empty"
+            return
+
         # Разбиваем субтитры на фразы
         self.en_subs_phrases = convert_into_phrases(en_subs, self.time_delta, self.phrases_duration_limit, self.is_split_long_phrases)
         print "English phrases: %s" % len(self.en_subs_phrases)
@@ -415,7 +424,7 @@ class VideoWorker(QtCore.QThread):
 
     updateProgress = QtCore.Signal(int)
     updateTitle = QtCore.Signal(str)
-    jobFinished = QtCore.Signal()
+    jobFinished = QtCore.Signal(float)
 
     def __init__(self, data):
         QtCore.QThread.__init__(self)
@@ -427,7 +436,10 @@ class VideoWorker(QtCore.QThread):
       self.canceled = True
 
     def run(self):
+        prefix = format_filename(self.model.deck_name)
         self.video_resolution = str(self.model.video_width) + "x" + str(self.model.video_height)
+
+        time_start = time.time()
 
         num_files = len(self.model.ffmpeg_split_timestamps)
         for i in range(num_files):
@@ -438,7 +450,7 @@ class VideoWorker(QtCore.QThread):
             
             self.updateProgress.emit((i * 1.0 / num_files) * 100)
                         
-            filename = self.model.directory + os.sep + "collection.media" + os.sep + chunk[0]
+            filename = self.model.directory + os.sep + prefix + ".media" + os.sep + chunk[0]
             ss = chunk[1]
             to = chunk[2]
 
@@ -449,9 +461,12 @@ class VideoWorker(QtCore.QThread):
                     "-s", self.video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", filename + ".mp4"])
             call(["ffmpeg", "-ss", ss, "-i", self.model.video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.model.audio_id), "-copyts", filename + ".mp3"])
 
+        time_end = time.time()
+        time_diff = (time_end - time_start)
+ 
         if not self.canceled:
             self.updateProgress.emit(100)
-            self.jobFinished.emit()
+            self.jobFinished.emit(time_diff)
 
         print "Done"
 
@@ -624,12 +639,20 @@ class Example(QtGui.QMainWindow):
         self.model.create_subtitles()
 
         # tsv file
+        if len(self.model.deck_name) == 0:
+            print "Error: deck name can't be empty"
+            return
+        
         self.model.create_tsv_file()
 
-        # # create or remove & create colletion.media directory
-        create_or_clean_collection_dir(self.model.directory)
+        if len(self.model.video_file) == 0:
+            print "Error: video file name can't be empty"
+            return
 
-        # # video & audio files
+        # create or remove & create colletion.media directory
+        create_or_clean_collection_dir(self.model.directory, self.model.deck_name)
+
+        # video & audio files
         self.convert_video()
 
     def setProgress(self, progress):
@@ -638,9 +661,12 @@ class Example(QtGui.QMainWindow):
     def setTitle(self, title):
         self.progressDialog.setLabelText(title)
 
-    def finishProgressDialog(self):
+    def finishProgressDialog(self, time_diff):
         self.progressDialog.close()
-        QtGui.QMessageBox.information(self, "movie2anki", "Processing completed.")
+        minutes = int(time_diff / 60)
+        seconds = int(time_diff % 60)
+        message = "Processing completed in %s minutes %s seconds." % (minutes, seconds)
+        QtGui.QMessageBox.information(self, "movie2anki", message)
 
     def cancelProgressDialog(self):
         self.worker.cancel()
