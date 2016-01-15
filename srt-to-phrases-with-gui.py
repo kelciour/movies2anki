@@ -538,10 +538,10 @@ class Example(QtGui.QMainWindow):
         self.tryToSetEngAudio()
 
         # Try to find subtitles
-        self.model.en_srt = guess_srt_file(fname, ["*eng.srt", "*en.srt"], "")
+        self.model.en_srt = guess_srt_file(fname, ["*eng*.srt", "*en*.srt"], "")
         self.subsEngEdit.setText(self.model.en_srt)
 
-        self.model.ru_srt = guess_srt_file(fname, ["*rus.srt", "*ru.srt"], "")
+        self.model.ru_srt = guess_srt_file(fname, ["*rus*.srt", "*ru*.srt"], "")
         self.subsRusEdit.setText(self.model.ru_srt)
 
         self.dir = os.path.dirname(fname)
