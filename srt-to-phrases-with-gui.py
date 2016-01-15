@@ -97,7 +97,37 @@ def join_lines_within_subs(subs):
 
     return subs_joined
 
-def convert_into_phrases(en_subs, time_delta):
+def split_long_phrases(en_subs, phrases_duration_limit):
+    subs = []
+
+    for sub in en_subs:
+        sub_start = sub[0][0]
+        sub_end = sub[-1][1]
+
+        if (sub_end - sub_start) > phrases_duration_limit:
+            sub_chunks_num = int((sub_end - sub_start) / phrases_duration_limit) + 1
+
+            sub_splitted = [[] for i in range(sub_chunks_num)]
+
+            # +1 for [0...(sub_chunks_num-1)] not [0...sub_chunks_num]
+            sub_chunks_limit = (sub_end - sub_start + 1) / sub_chunks_num
+
+            for s in sub:
+                s_start = s[0]
+                s_end = s[1]
+                s_content = s[2]
+
+                pos = int((s_end - sub_start) / sub_chunks_limit)
+                sub_splitted[pos].append((s_start, s_end, s_content))
+
+            for s in sub_splitted:
+                subs.append(s)
+        else:
+            subs.append(sub)
+
+    return subs
+
+def convert_into_phrases(en_subs, time_delta, phrases_duration_limit, is_split_long_phrases):
     subs = []
 
     for sub in en_subs:
@@ -112,6 +142,8 @@ def convert_into_phrases(en_subs, time_delta):
 
         prev_sub_end = sub_end
 
+    if is_split_long_phrases:
+        subs = split_long_phrases(subs, phrases_duration_limit)
     subs = join_lines_within_subs(subs)
     return subs
 
@@ -253,6 +285,9 @@ class Model(object):
 
         self.time_delta = 1.75
 
+        self.is_split_long_phrases = False
+        self.phrases_duration_limit = 60
+
         self.video_width = 480
         self.video_height = 320
 
@@ -269,7 +304,9 @@ class Model(object):
         print "Russian subtitles: %s" % self.ru_srt
         print "Output Directory: %s" % self.directory
         print "Deck name: %s" % self.deck_name
-        print "Time delta: %s" % self.time_delta
+        print "Gap between phrases: %s" % self.time_delta
+        print "Split Long Phrases: %s" % self.is_split_long_phrases
+        print "Max length phrases: %s" % self.phrases_duration_limit
         print "Video width: %s" % self.video_width
         print "Video height: %s" % self.video_height
         print "Shift start: %s" % self.shift_start
@@ -283,7 +320,7 @@ class Model(object):
         print "English subtitles: %s" % len(en_subs)
 
         # Разбиваем субтитры на фразы
-        self.en_subs_phrases = convert_into_phrases(en_subs, self.time_delta)
+        self.en_subs_phrases = convert_into_phrases(en_subs, self.time_delta, self.phrases_duration_limit, self.is_split_long_phrases)
         print "English phrases: %s" % len(self.en_subs_phrases)
 
         # Загружаем русские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
@@ -428,6 +465,7 @@ class Example(QtGui.QMainWindow):
         self.deckEdit.textChanged.connect(self.setDeckName)
         self.startButton.clicked.connect(self.start)
         self.timeSpinBox.valueChanged.connect(self.setTimeDelta)
+        self.splitPhrasesSpinBox.valueChanged.connect(self.setPhrasesDurationLimit)
         self.widthSpinBox.valueChanged.connect(self.setVideoWidth)
         self.heightSpinBox.valueChanged.connect(self.setVideoHeight)
         self.startSpinBox.valueChanged.connect(self.setShiftStart)
@@ -538,6 +576,12 @@ class Example(QtGui.QMainWindow):
 
     def setTimeDelta(self):
         self.model.time_delta = self.timeSpinBox.value()
+
+    def setPhrasesDurationLimit(self):
+        self.model.phrases_duration_limit = self.splitPhrasesSpinBox.value()
+
+    def setSplitLongPhrases(self):
+        self.model.is_split_long_phrases = self.splitLongPhrasesGroupBox.isChecked();
 
     def setMovieMode(self):
         self.model.mode = "Movie"
@@ -730,9 +774,10 @@ class Example(QtGui.QMainWindow):
         return groupBox
 
     def createSplitPhrasesGroup(self):
-        groupBox = QtGui.QGroupBox("Split Long Phrases:")
-        groupBox.setCheckable(True)
-        groupBox.setChecked(False)
+        self.splitLongPhrasesGroupBox = QtGui.QGroupBox("Split Long Phrases:")
+        self.splitLongPhrasesGroupBox.setCheckable(True)
+        self.splitLongPhrasesGroupBox.setChecked(self.model.is_split_long_phrases)
+        self.splitLongPhrasesGroupBox.clicked.connect(self.setSplitLongPhrases)
 
         self.splitPhrasesSpinBox = QtGui.QSpinBox()
         self.splitPhrasesSpinBox.setRange(0, 6000)
@@ -743,9 +788,9 @@ class Example(QtGui.QMainWindow):
         hbox.addWidget(self.splitPhrasesSpinBox)
         hbox.addWidget(QtGui.QLabel("sec"))
 
-        groupBox.setLayout(hbox)
+        self.splitLongPhrasesGroupBox.setLayout(hbox)
 
-        return groupBox
+        return self.splitLongPhrasesGroupBox
 
     def createModeOptionsGroup(self):
         vbox = QtGui.QVBoxLayout()
