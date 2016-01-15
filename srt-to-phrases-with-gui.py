@@ -350,7 +350,7 @@ class Model(object):
         print "English subtitles: %s" % len(en_subs)
 
         if len(en_subs) == 0:
-            print "Error: English subtitles can't be empty"
+            print "Error: english subtitles can't be empty"
             return
 
         # Разбиваем субтитры на фразы
@@ -569,7 +569,7 @@ class Example(QtGui.QMainWindow):
         self.outDirEdit.setText(self.model.directory)
 
     def tryToSetEngAudio(self):
-        eng_id = 0
+        eng_id = len(self.audio_streams) - 1
         for cur_id in range(len(self.audio_streams)):
             if self.audio_streams[cur_id].find("[eng]") != -1:
                 eng_id = cur_id
@@ -590,7 +590,7 @@ class Example(QtGui.QMainWindow):
             audio = streams[idx]
 
             title = ""
-            language = ""
+            language = "???"
 
             if audio.has_key("tags"):
                 tags = audio["tags"]
