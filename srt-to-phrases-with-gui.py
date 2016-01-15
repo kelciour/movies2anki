@@ -12,7 +12,7 @@ import time
 
 from PySide import QtCore, QtGui
 from subprocess import check_output
-from subprocess import call
+from subprocess import Popen
 
 def srt_time_to_seconds(time):
     split_time = time.split(',')
@@ -244,6 +244,8 @@ class Model(object):
         self.encodings = ["utf-8", "cp1251"]
         self.sub_encoding = None
 
+        self.p = None
+
     def convert_to_unicode(self, file_content):
         for enc in self.encodings:
             try:
@@ -457,9 +459,11 @@ class VideoWorker(QtCore.QThread):
             print ss
             self.updateTitle.emit(ss)
             
-            call(["ffmpeg", "-ss", ss, "-i", self.model.video_file, "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264",
+            self.model.p = Popen(["ffmpeg", "-ss", ss, "-i", self.model.video_file, "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264",
                     "-s", self.video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", filename + ".mp4"])
-            call(["ffmpeg", "-ss", ss, "-i", self.model.video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.model.audio_id), "-copyts", filename + ".mp3"])
+            self.model.p.wait()
+            self.model.p = Popen(["ffmpeg", "-ss", ss, "-i", self.model.video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.model.audio_id), "-copyts", filename + ".mp3"])
+            self.model.p.wait()
 
         time_end = time.time()
         time_diff = (time_end - time_start)
@@ -670,6 +674,8 @@ class Example(QtGui.QMainWindow):
 
     def cancelProgressDialog(self):
         self.worker.cancel()
+        if self.model.p != None:
+            self.model.p.terminate()
 
     def convert_video(self):
         self.progressDialog = QtGui.QProgressDialog(self)
