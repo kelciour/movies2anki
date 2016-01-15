@@ -40,17 +40,6 @@ def seconds_to_ffmpeg_time(time):
 def fix_empty_lines(content):
     return re.sub('\n\n+', '\n\n', content)
 
-def load_subtitle(filename):
-    file_content = open(filename, 'r').read()
-    if file_content[:3]=='\xef\xbb\xbf': # with bom
-        file_content = file_content[3:]
-
-    ## Оставляем только одну пустую строку между субтитрами
-    file_content = fix_empty_lines(file_content)
-
-    ## Читаем субтитры
-    return read_subtitles(file_content)
-
 def read_subtitles(content):
     en_subs = []
     
@@ -68,17 +57,6 @@ def read_subtitles(content):
             print "%s" % repr(sub)
    
     return en_subs
-
-def write_subtitles(file_name, subs):
-    f_out = open(file_name, 'w')
-
-    for idx in range(len(subs)):
-        f_out.write(str(idx+1) + "\n")
-        f_out.write(seconds_to_srt_time(subs[idx][0]) + " --> " + seconds_to_srt_time(subs[idx][1]) + "\n")
-        f_out.write(subs[idx][2] + "\n")
-        f_out.write("\n")
-    
-    f_out.close()
 
 # Формат субтитров
 # [(start_time, end_time, subtitle), (), ...], [(...)], ...
@@ -225,41 +203,6 @@ def format_filename(deck_name):
     filename = filename.replace(' ','_')
     return filename
 
-def write_tsv_file(deck_name, en_subs, ru_subs, directory):
-    prefix = format_filename(deck_name)
-    filename = os.path.join(directory, prefix + ".tsv")
-    
-    f_out = open(filename, 'w')
-
-    ffmpeg_split_timestamps = []
-    for idx in range(len(en_subs)):
-        start_time = seconds_to_tsv_time(en_subs[idx][0])
-        end_time = seconds_to_tsv_time(en_subs[idx][1])
-
-        en_sub = en_subs[idx][2]
-        en_sub = re.sub('\n', ' ', en_sub)
-        ru_sub = ru_subs[idx][2]
-        ru_sub = re.sub('\n', ' ', ru_sub)
-
-        tag = prefix
-        sequence = str(idx + 1).zfill(3) + "_" + start_time
-        sound = prefix + "_" + start_time + "-" + end_time + ".mp3"
-        video = prefix + "_" + start_time + "-" + end_time + ".mp4"
-
-        f_out.write(tag + "\t" + sequence + "\t[sound:" + sound + "]\t[sound:" + video + "]\t")
-        f_out.write(en_sub)
-        f_out.write("\t")
-        f_out.write(ru_sub)
-        f_out.write('\n')
-
-        ffmpeg_split_timestamps.append((prefix + "_" + start_time + "-" + end_time, 
-            seconds_to_ffmpeg_time(en_subs[idx][0]), 
-            seconds_to_ffmpeg_time(en_subs[idx][1])))
-    
-    f_out.close()
-
-    return ffmpeg_split_timestamps
-
 def create_or_clean_collection_dir(basedir):
     directory = os.path.join(basedir, "collection.media")
     if os.path.exists(directory):
@@ -296,6 +239,87 @@ class Model(object):
 
         self.mode = "Movie"
 
+        self.encodings = ["utf-8", "cp1251"]
+        self.sub_encoding = None
+
+    def convert_to_unicode(self, file_content):
+        for enc in self.encodings:
+            try:
+                content = file_content.decode(enc)
+                self.sub_encoding = enc
+                return content
+            
+            except UnicodeDecodeError:
+                pass
+
+        self.sub_encoding = None
+        return file_content
+
+    def load_subtitle(self, filename):
+        file_content = open(filename, 'r').read()
+        if file_content[:3]=='\xef\xbb\xbf': # with bom
+            file_content = file_content[3:]
+
+        ## Оставляем только одну пустую строку между субтитрами
+        file_content = fix_empty_lines(file_content)
+
+        ## Конвертируем субтитры в Unicode
+        file_content = self.convert_to_unicode(file_content)
+
+        ## Читаем субтитры
+        return read_subtitles(file_content)
+
+    def encode_str(self, enc_str):
+        if self.sub_encoding == None:
+            return enc_str
+        return enc_str.encode('utf-8')
+
+    def write_subtitles(self, file_name, subs):
+        f_out = open(file_name, 'w')
+
+        for idx in range(len(subs)):
+            f_out.write(self.encode_str(str(idx+1) + "\n"))
+            f_out.write(self.encode_str(seconds_to_srt_time(subs[idx][0]) + " --> " + seconds_to_srt_time(subs[idx][1]) + "\n"))
+            f_out.write(self.encode_str(subs[idx][2] + "\n"))
+            f_out.write(self.encode_str("\n"))
+        
+        f_out.close()
+
+    def write_tsv_file(self, deck_name, en_subs, ru_subs, directory):
+        prefix = format_filename(deck_name)
+        filename = os.path.join(directory, prefix + ".tsv")
+        
+        f_out = open(filename, 'w')
+
+        ffmpeg_split_timestamps = []
+        for idx in range(len(en_subs)):
+            start_time = seconds_to_tsv_time(en_subs[idx][0])
+            end_time = seconds_to_tsv_time(en_subs[idx][1])
+
+            en_sub = en_subs[idx][2]
+            en_sub = re.sub('\n', ' ', en_sub)
+            ru_sub = ru_subs[idx][2]
+            ru_sub = re.sub('\n', ' ', ru_sub)
+
+            tag = prefix
+            sequence = str(idx + 1).zfill(3) + "_" + start_time
+            sound = prefix + "_" + start_time + "-" + end_time + ".mp3"
+            video = prefix + "_" + start_time + "-" + end_time + ".mp4"
+
+            f_out.write(self.encode_str(tag + "\t" + sequence + "\t[sound:" + sound + "]\t[sound:" + video + "]\t"))
+            f_out.write(self.encode_str(en_sub))
+            f_out.write(self.encode_str("\t"))
+            f_out.write(self.encode_str(ru_sub))
+            f_out.write(self.encode_str('\n'))
+
+            ffmpeg_split_timestamps.append((prefix + "_" + start_time + "-" + end_time, 
+                seconds_to_ffmpeg_time(en_subs[idx][0]), 
+                seconds_to_ffmpeg_time(en_subs[idx][1])))
+        
+        f_out.close()
+
+        return ffmpeg_split_timestamps
+
     def create_subtitles(self):
         print "--------------------------"
         print "Video file: %s" % self.video_file
@@ -316,7 +340,8 @@ class Model(object):
 
         # Загружаем английские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
         print "Loading English subtitles..."
-        en_subs = load_subtitle(self.en_srt)
+        en_subs = self.load_subtitle(self.en_srt)
+        print "Encoding: %s" % self.sub_encoding 
         print "English subtitles: %s" % len(en_subs)
 
         # Разбиваем субтитры на фразы
@@ -325,7 +350,8 @@ class Model(object):
 
         # Загружаем русские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
         print "Loading Russian subtitles..."
-        ru_subs = load_subtitle(self.ru_srt)
+        ru_subs = self.load_subtitle(self.ru_srt)
+        print "Encoding: %s" % self.sub_encoding 
         print "Russian subtitles: %s" % len(ru_subs)
 
         # Синхронизируем русские субтитры с получившимися английскими субтитрами
@@ -350,15 +376,16 @@ class Model(object):
 
         # Записываем английские субтитры
         print "Writing English subtitles..."
-        write_subtitles(self.out_en_srt, self.en_subs_phrases)
+        self.write_subtitles(self.out_en_srt, self.en_subs_phrases)
 
         # Записываем русские субтитры
         print "Writing Russian subtitles..."
-        write_subtitles(self.out_ru_srt, self.ru_subs_phrases)
+        self.write_subtitles(self.out_ru_srt, self.ru_subs_phrases)
 
     def create_tsv_file(self):
         # Формируем tsv файл для импорта в Anki
-        self.ffmpeg_split_timestamps = write_tsv_file(self.deck_name, self.en_subs_phrases, self.ru_subs_phrases, self.directory)
+        print "Writing tsv file..."
+        self.ffmpeg_split_timestamps = self.write_tsv_file(self.deck_name, self.en_subs_phrases, self.ru_subs_phrases, self.directory)
 
     def getTimeDelta(self):
         return self.time_delta
@@ -599,10 +626,10 @@ class Example(QtGui.QMainWindow):
         # tsv file
         self.model.create_tsv_file()
 
-        # create or remove & create colletion.media directory
+        # # create or remove & create colletion.media directory
         create_or_clean_collection_dir(self.model.directory)
 
-        # video & audio files
+        # # video & audio files
         self.convert_video()
 
     def setProgress(self, progress):
