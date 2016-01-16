@@ -346,9 +346,9 @@ class Model(object):
         print "--------------------------"
 
         # Загружаем английские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
-        print "Loading English subtitles..."
+        print "Loading English subtitles...", 
         en_subs = self.load_subtitle(self.en_srt)
-        print "Encoding: %s" % self.sub_encoding 
+        print "with encoding: %s" % self.sub_encoding 
         print "English subtitles: %s" % len(en_subs)
 
         if len(en_subs) == 0:
@@ -360,9 +360,9 @@ class Model(object):
         print "English phrases: %s" % len(self.en_subs_phrases)
 
         # Загружаем русские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
-        print "Loading Russian subtitles..."
+        print "Loading Russian subtitles...", 
         ru_subs = self.load_subtitle(self.ru_srt)
-        print "Encoding: %s" % self.sub_encoding 
+        print "with encoding: %s" % self.sub_encoding 
         print "Russian subtitles: %s" % len(ru_subs)
 
         # Синхронизируем русские субтитры с получившимися английскими субтитрами
@@ -518,6 +518,10 @@ class Example(QtGui.QMainWindow):
         self.endSpinBox.valueChanged.connect(self.setShiftEnd)
         self.movieRadioButton.toggled.connect(self.setMovieMode)
         self.phrasesRadioButton.toggled.connect(self.setPhrasesMode)
+
+        self.videoEdit.textChanged.connect(self.changeVideoFile)
+        self.subsEngEdit.textChanged.connect(self.changeEngSubs)
+        self.subsRusEdit.textChanged.connect(self.changeRusSubs)
         # ---------------------------------------------------
         vbox.addStretch(1)
 
@@ -531,24 +535,9 @@ class Example(QtGui.QMainWindow):
         self.show()
 
     def showVideoFileDialog(self):
-        fname, _ = QtGui.QFileDialog.getOpenFileName(dir = self.dir, filter = "Video Files (*.avi *.mkv *.mp4);;All files (*.*)")
+        fname, _ = QtGui.QFileDialog.getOpenFileName(dir = self.dir, filter = "Video Files (*.avi *.mkv *.mp4 *.ts);;All files (*.*)")
         self.videoEdit.setText(fname)
-        self.model.video_file = fname
-        
-        # Get Audio Streams
-        self.audioIdComboBox.clear()
-        self.getAudioStreams(fname)
-        self.audioIdComboBox.addItems(self.audio_streams)
-        self.tryToSetEngAudio()
-
-        # Try to find subtitles
-        self.model.en_srt = guess_srt_file(fname, ["*eng*.srt", "*en*.srt"], "")
-        self.subsEngEdit.setText(self.model.en_srt)
-
-        self.model.ru_srt = guess_srt_file(fname, ["*rus*.srt", "*ru*.srt"], "")
-        self.subsRusEdit.setText(self.model.ru_srt)
-
-        self.dir = os.path.dirname(fname)
+        self.changeVideoFile()
 
     def showSubsEngFileDialog(self):
         fname, _ = QtGui.QFileDialog.getOpenFileName(dir = self.dir, filter = "Subtitle Files (*.srt)")
@@ -585,11 +574,15 @@ class Example(QtGui.QMainWindow):
         self.model.audio_id = self.audioIdComboBox.currentIndex()
 
     def getAudioStreams(self, video_file):
+        self.audio_streams = []
+        
+        if not os.path.isfile(video_file):
+            return
+
         output = check_output(["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_file])
         json_data = json.loads(output)
         streams = json_data["streams"]
 
-        self.audio_streams = []
         for idx in range(len(streams)):
             audio = streams[idx]
 
@@ -607,6 +600,36 @@ class Example(QtGui.QMainWindow):
                 stream = "%i: [%s]" % (idx, language)
 
             self.audio_streams.append(stream)
+
+    def changeAudioStreams(self):
+        self.audioIdComboBox.clear()
+        self.getAudioStreams(self.model.video_file)
+        self.audioIdComboBox.addItems(self.audio_streams)
+        self.tryToSetEngAudio()
+
+    def changeSubtitles(self):
+        self.model.en_srt = guess_srt_file(self.model.video_file, ["*eng*.srt", "*en*.srt"], "")
+        self.subsEngEdit.setText(self.model.en_srt)
+
+        self.model.ru_srt = guess_srt_file(self.model.video_file, ["*rus*.srt", "*ru*.srt"], "")
+        self.subsRusEdit.setText(self.model.ru_srt)
+
+    def changeVideoFile(self):
+        self.model.video_file = self.videoEdit.text()
+        self.dir = os.path.dirname(self.model.video_file)
+        
+        self.changeAudioStreams()
+        
+        if not os.path.isfile(self.model.video_file):
+            return
+
+        self.changeSubtitles()
+
+    def changeEngSubs(self):
+        self.model.en_srt = self.subsEngEdit.text()
+
+    def changeRusSubs(self):
+        self.model.ru_srt = self.subsRusEdit.text()
 
     def setVideoWidth(self):
         self.model.video_width = self.widthSpinBox.value()
@@ -646,7 +669,7 @@ class Example(QtGui.QMainWindow):
         if len(self.model.deck_name) == 0:
             print "Error: deck name can't be empty"
             return
-        
+
         self.model.create_tsv_file()
 
         if len(self.model.video_file) == 0:
