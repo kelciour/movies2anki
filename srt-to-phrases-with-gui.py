@@ -565,6 +565,7 @@ class Example(QtGui.QMainWindow):
         self.videoEdit.textChanged.connect(self.changeVideoFile)
         self.subsEngEdit.textChanged.connect(self.changeEngSubs)
         self.subsRusEdit.textChanged.connect(self.changeRusSubs)
+        self.outDirEdit.textChanged.connect(self.changeOutDir)
         # ---------------------------------------------------
         vbox.addStretch(1)
 
@@ -677,6 +678,9 @@ class Example(QtGui.QMainWindow):
 
     def changeRusSubs(self):
         self.model.ru_srt = self.subsRusEdit.text()
+
+    def changeOutDir(self):
+        self.model.directory = self.outDirEdit.text()
 
     def setVideoWidth(self):
         self.model.video_width = self.widthSpinBox.value()
