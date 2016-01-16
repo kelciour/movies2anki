@@ -10,6 +10,7 @@ import string
 import sys
 import time
 
+from ConfigParser import SafeConfigParser
 from PySide import QtCore, QtGui
 from subprocess import check_output
 from subprocess import Popen
@@ -215,8 +216,11 @@ def create_or_clean_collection_dir(basedir, deck_name):
 
 class Model(object):
     def __init__(self):
+        self.config_file_name = 'config.ini'
+        
         self.video_file = ""
         self.audio_id = 0
+        self.deck_name = ""
 
         self.en_srt = ""
         self.ru_srt = ""
@@ -224,8 +228,15 @@ class Model(object):
         self.out_en_srt = "out.en.srt"
         self.out_ru_srt = "out.ru.srt"
 
-        self.deck_name = ""
 
+        self.encodings = ["utf-8", "cp1251"]
+        self.sub_encoding = None
+        
+        self.p = None
+
+        self.load_settings()
+
+    def default_settings(self):
         self.directory = os.getcwd()
 
         self.time_delta = 1.75
@@ -241,10 +252,39 @@ class Model(object):
 
         self.mode = "Movie"
 
-        self.encodings = ["utf-8", "cp1251"]
-        self.sub_encoding = None
+    def load_settings(self):
+        if not os.path.isfile(self.config_file_name):
+            self.default_settings()
+            return
 
-        self.p = None
+        config = SafeConfigParser()
+        config.read(self.config_file_name)
+
+        self.directory = config.get('main', 'out_directory')
+        self.video_width = config.getint('main', 'video_width')
+        self.video_height = config.getint('main', 'video_height')
+        self.shift_start = config.getfloat('main', 'pad_start')
+        self.shift_end = config.getfloat('main', 'pad_end')
+        self.time_delta = config.getfloat('main', 'gap_between_phrases')
+        self.is_split_long_phrases = config.getboolean('main', 'is_split_long_phrases')
+        self.phrases_duration_limit = config.getint('main', 'phrases_duration_limit')
+        self.mode = config.get('main', 'mode')
+
+    def save_settings(self):
+        config = SafeConfigParser()
+        config.add_section('main')
+        config.set('main', 'out_directory', self.directory)
+        config.set('main', 'video_width', str(self.video_width))
+        config.set('main', 'video_height', str(self.video_height))
+        config.set('main', 'pad_start', str(self.shift_start))
+        config.set('main', 'pad_end', str(self.shift_end))
+        config.set('main', 'gap_between_phrases', str(self.time_delta))
+        config.set('main', 'is_split_long_phrases', str(self.is_split_long_phrases))
+        config.set('main', 'phrases_duration_limit', str(self.phrases_duration_limit))
+        config.set('main', 'mode', self.mode)
+  
+        with open(self.config_file_name, 'w') as f:
+            config.write(f)
 
     def convert_to_unicode(self, file_content):
         for enc in self.encodings:
@@ -419,6 +459,9 @@ class Model(object):
     def setShiftEnd(self, value):
         self.shift_end = value / 1000.0
 
+    def getPhrasesDurationLimit(self):
+        return self.phrases_duration_limit
+
     def getMode(self):
         return self.mode
 
@@ -530,14 +573,18 @@ class Example(QtGui.QMainWindow):
         self.setCentralWidget(w)
 
         self.adjustSize()
-        # self.resize(600, self.height())
         self.setWindowTitle('movies2anki')
         self.show()
+
+    def closeEvent(self, event):
+        # save settings
+        self.model.save_settings()
+        
+        QtGui.QMainWindow.closeEvent(self, event)
 
     def showVideoFileDialog(self):
         fname, _ = QtGui.QFileDialog.getOpenFileName(dir = self.dir, filter = "Video Files (*.avi *.mkv *.mp4 *.ts);;All files (*.*)")
         self.videoEdit.setText(fname)
-        self.changeVideoFile()
 
     def showSubsEngFileDialog(self):
         fname, _ = QtGui.QFileDialog.getOpenFileName(dir = self.dir, filter = "Subtitle Files (*.srt)")
@@ -662,6 +709,9 @@ class Example(QtGui.QMainWindow):
         self.model.deck_name = self.deckEdit.text()
 
     def start(self):
+        # save settings
+        self.model.save_settings()
+
         # subtitles
         self.model.create_subtitles()
 
@@ -843,7 +893,7 @@ class Example(QtGui.QMainWindow):
         groupBox = QtGui.QGroupBox("Gap between Phrases:")
 
         self.timeSpinBox = QtGui.QDoubleSpinBox()
-        self.timeSpinBox.setRange(0, 60.0)
+        self.timeSpinBox.setRange(0, 600.0)
         self.timeSpinBox.setSingleStep(0.25)
         self.timeSpinBox.setValue(self.model.getTimeDelta())
 
@@ -864,7 +914,7 @@ class Example(QtGui.QMainWindow):
         self.splitPhrasesSpinBox = QtGui.QSpinBox()
         self.splitPhrasesSpinBox.setRange(0, 6000)
         self.splitPhrasesSpinBox.setSingleStep(10)
-        self.splitPhrasesSpinBox.setValue(60)
+        self.splitPhrasesSpinBox.setValue(self.model.getPhrasesDurationLimit())
 
         hbox = QtGui.QHBoxLayout()
         hbox.addWidget(self.splitPhrasesSpinBox)
