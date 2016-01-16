@@ -10,6 +10,7 @@ import string
 import sys
 import time
 
+from collections import deque
 from ConfigParser import SafeConfigParser
 from PySide import QtCore, QtGui
 from subprocess import check_output
@@ -258,9 +259,12 @@ class Model(object):
 
         self.mode = "Movie"
 
+        self.recent_deck_names = deque(maxlen = 5)
+
     def load_settings(self):
+        self.default_settings()
+
         if not os.path.isfile(self.config_file_name):
-            self.default_settings()
             return
 
         config = SafeConfigParser()
@@ -276,6 +280,10 @@ class Model(object):
         self.phrases_duration_limit = config.getint('main', 'phrases_duration_limit')
         self.mode = config.get('main', 'mode')
 
+        value = [e.strip() for e in config.get('main', 'recent_deck_names').split(',')]
+        if len(value) != 0:
+            self.recent_deck_names.extendleft(value)
+
     def save_settings(self):
         config = SafeConfigParser()
         config.add_section('main')
@@ -288,6 +296,8 @@ class Model(object):
         config.set('main', 'is_split_long_phrases', str(self.is_split_long_phrases))
         config.set('main', 'phrases_duration_limit', str(self.phrases_duration_limit))
         config.set('main', 'mode', self.mode)
+        
+        config.set('main', 'recent_deck_names', ",".join(reversed(self.recent_deck_names)))
   
         with open(self.config_file_name, 'w') as f:
             config.write(f)
@@ -391,6 +401,8 @@ class Model(object):
         print "Mode: %s" % self.mode
         print "--------------------------"
 
+        self.is_subtitles_created = False
+
         # Загружаем английские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
         print "Loading English subtitles...", 
         en_subs = self.load_subtitle(self.en_srt)
@@ -443,6 +455,8 @@ class Model(object):
         # Записываем русские субтитры
         print "Writing Russian subtitles..."
         self.write_subtitles(self.out_ru_srt, self.ru_subs_phrases)
+
+        self.is_subtitles_created = True
 
     def create_tsv_file(self):
         # Формируем tsv файл для импорта в Anki
@@ -565,7 +579,7 @@ class Example(QtGui.QMainWindow):
         self.subsEngButton.clicked.connect(self.showSubsEngFileDialog)
         self.subsRusButton.clicked.connect(self.showSubsRusFileDialog)
         self.outDirButton.clicked.connect(self.showOutDirectoryDialog)
-        self.deckEdit.textChanged.connect(self.setDeckName)
+        self.deckComboBox.textChanged.connect(self.setDeckName)
         self.previewButton.clicked.connect(self.preview)
         self.startButton.clicked.connect(self.start)
         self.timeSpinBox.valueChanged.connect(self.setTimeDelta)
@@ -725,7 +739,7 @@ class Example(QtGui.QMainWindow):
         self.model.mode = "Phrases"
 
     def setDeckName(self):
-        self.model.deck_name = self.deckEdit.text()
+        self.model.deck_name = self.deckComboBox.currentText()
 
     def preview(self):
         # save settings
@@ -733,6 +747,9 @@ class Example(QtGui.QMainWindow):
 
         # subtitles
         self.model.create_subtitles()
+
+        if not self.model.is_subtitles_created:
+            return
 
         # show info dialog
         message = """
@@ -743,9 +760,6 @@ The longest phrase: %s seconds """ % (self.model.num_en_subs, self.model.num_ru_
         QtGui.QMessageBox.information(self, "Preview", message)
 
     def start(self):
-        # save settings
-        self.model.save_settings()
-
         # subtitles
         self.model.create_subtitles()
 
@@ -753,6 +767,11 @@ The longest phrase: %s seconds """ % (self.model.num_en_subs, self.model.num_ru_
         if len(self.model.deck_name) == 0:
             print "Error: deck name can't be empty"
             return
+
+        self.updateDeckComboBox()
+
+        # save settings
+        self.model.save_settings()
 
         self.model.create_tsv_file()
 
@@ -778,6 +797,18 @@ The longest phrase: %s seconds """ % (self.model.num_en_subs, self.model.num_ru_
         seconds = int(time_diff % 60)
         message = "Processing completed in %s minutes %s seconds." % (minutes, seconds)
         QtGui.QMessageBox.information(self, "movies2anki", message)
+
+    def updateDeckComboBox(self):
+        if self.deckComboBox.findText(self.deckComboBox.currentText()) == -1:
+            self.deckComboBox.addItem(self.deckComboBox.currentText())
+            self.model.recent_deck_names.append(self.deckComboBox.currentText())
+        else:
+            self.model.recent_deck_names.remove(self.deckComboBox.currentText())
+            self.model.recent_deck_names.append(self.deckComboBox.currentText())
+
+        self.deckComboBox.clear()
+        self.deckComboBox.addItems(self.model.recent_deck_names)
+        self.deckComboBox.setCurrentIndex(self.deckComboBox.count()-1)
 
     def dismissProgressDialog(self):
         self.msgButton.setEnabled(True)
@@ -1015,10 +1046,16 @@ The longest phrase: %s seconds """ % (self.model.num_en_subs, self.model.num_ru_
     def createBottomGroup(self):
         groupBox = QtGui.QGroupBox("Name for deck:")
 
-        self.deckEdit = QtGui.QLineEdit()
-
+        self.deckComboBox = QtGui.QComboBox()
+        self.deckComboBox.setEditable(True)
+        self.deckComboBox.setMaxCount(5)
+        self.deckComboBox.setSizePolicy(QtGui.QSizePolicy.Expanding,
+                QtGui.QSizePolicy.Preferred)
+        self.deckComboBox.addItems(self.model.recent_deck_names)
+        self.deckComboBox.setCurrentIndex(self.deckComboBox.count()-1)
+        
         hbox = QtGui.QHBoxLayout()
-        hbox.addWidget(self.deckEdit)
+        hbox.addWidget(self.deckComboBox)
 
         groupBox.setLayout(hbox)
 
