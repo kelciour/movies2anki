@@ -65,6 +65,9 @@ def read_subtitles(content):
 def join_lines_within_subs(subs):
     subs_joined = []
 
+    global duration_longest_phrase
+    duration_longest_phrase = 0
+
     for sub in subs:
         sub_start = sub[0][0]
         sub_end = sub[-1][1]
@@ -74,6 +77,9 @@ def join_lines_within_subs(subs):
             sub_content = sub_content + " " + s[2]
         
         subs_joined.append((sub_start, sub_end, sub_content.strip()))
+
+        if sub_end - sub_start > duration_longest_phrase:
+            duration_longest_phrase = int(sub_end - sub_start)
 
     return subs_joined
 
@@ -109,7 +115,7 @@ def split_long_phrases(en_subs, phrases_duration_limit):
 
 def convert_into_phrases(en_subs, time_delta, phrases_duration_limit, is_split_long_phrases):
     subs = []
-
+    
     for sub in en_subs:
         sub_start = sub[0]
         sub_end = sub[1]
@@ -405,6 +411,11 @@ class Model(object):
         print "with encoding: %s" % self.sub_encoding 
         print "Russian subtitles: %s" % len(ru_subs)
 
+        # Для preview диалога
+        self.num_en_subs = len(en_subs)
+        self.num_ru_subs = len(ru_subs)
+        self.num_phrases = len(self.en_subs_phrases)
+
         # Синхронизируем русские субтитры с получившимися английскими субтитрами
         print "Syncing Russian subtitles with English phrases..."
         self.ru_subs_phrases = sync_subtitles(self.en_subs_phrases, ru_subs)
@@ -470,6 +481,7 @@ class VideoWorker(QtCore.QThread):
     updateProgress = QtCore.Signal(int)
     updateTitle = QtCore.Signal(str)
     jobFinished = QtCore.Signal(float)
+    jobCanceled = QtCore.Signal()
 
     def __init__(self, data):
         QtCore.QThread.__init__(self)
@@ -514,6 +526,8 @@ class VideoWorker(QtCore.QThread):
         if not self.canceled:
             self.updateProgress.emit(100)
             self.jobFinished.emit(time_diff)
+        else:
+            self.jobCanceled.emit()
 
         print "Done"
 
@@ -552,6 +566,7 @@ class Example(QtGui.QMainWindow):
         self.subsRusButton.clicked.connect(self.showSubsRusFileDialog)
         self.outDirButton.clicked.connect(self.showOutDirectoryDialog)
         self.deckEdit.textChanged.connect(self.setDeckName)
+        self.previewButton.clicked.connect(self.preview)
         self.startButton.clicked.connect(self.start)
         self.timeSpinBox.valueChanged.connect(self.setTimeDelta)
         self.splitPhrasesSpinBox.valueChanged.connect(self.setPhrasesDurationLimit)
@@ -712,6 +727,21 @@ class Example(QtGui.QMainWindow):
     def setDeckName(self):
         self.model.deck_name = self.deckEdit.text()
 
+    def preview(self):
+        # save settings
+        self.model.save_settings()
+
+        # subtitles
+        self.model.create_subtitles()
+
+        # show info dialog
+        message = """
+English subtitles: %s
+Russian subtitles: %s
+Phrases: %s
+The longest phrase: %s seconds """ % (self.model.num_en_subs, self.model.num_ru_subs, self.model.num_phrases, duration_longest_phrase)
+        QtGui.QMessageBox.information(self, "Preview", message)
+
     def start(self):
         # save settings
         self.model.save_settings()
@@ -747,12 +777,24 @@ class Example(QtGui.QMainWindow):
         minutes = int(time_diff / 60)
         seconds = int(time_diff % 60)
         message = "Processing completed in %s minutes %s seconds." % (minutes, seconds)
-        QtGui.QMessageBox.information(self, "movie2anki", message)
+        QtGui.QMessageBox.information(self, "movies2anki", message)
+
+    def dismissProgressDialog(self):
+        self.msgButton.setEnabled(True)
+        self.msgBox.setText("          Done.           ")
 
     def cancelProgressDialog(self):
         self.worker.cancel()
         if self.model.p != None:
             self.model.p.terminate()
+
+        self.msgBox = QtGui.QMessageBox()
+        self.msgButton = QtGui.QPushButton("OK")
+        self.msgBox.setWindowTitle("movies2anki")
+        self.msgBox.setText("      Terminating...      ")
+        self.msgBox.addButton(self.msgButton, QtGui.QMessageBox.YesRole)
+        self.msgButton.setEnabled(False)
+        self.msgBox.show()
 
     def convert_video(self):
         self.progressDialog = QtGui.QProgressDialog(self)
@@ -769,6 +811,7 @@ class Example(QtGui.QMainWindow):
         self.worker.updateProgress.connect(self.setProgress)
         self.worker.updateTitle.connect(self.setTitle)
         self.worker.jobFinished.connect(self.finishProgressDialog)
+        self.worker.jobCanceled.connect(self.dismissProgressDialog)
 
         self.progressDialog.canceled.connect(self.cancelProgressDialog)
         self.progressDialog.setFixedSize(300, self.progressDialog.height())
