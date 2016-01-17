@@ -319,7 +319,7 @@ class Model(object):
         if len(filename) == 0:
             return []
 
-        file_content = open(filename, 'r').read()
+        file_content = open(filename, 'rU').read()
         if file_content[:3]=='\xef\xbb\xbf': # with bom
             file_content = file_content[3:]
 
