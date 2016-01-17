@@ -792,7 +792,7 @@ The longest phrase: %s seconds """ % (self.model.num_en_subs, self.model.num_ru_
         self.progressDialog.setLabelText(title)
 
     def finishProgressDialog(self, time_diff):
-        self.progressDialog.close()
+        self.progressDialog.done(0)
         minutes = int(time_diff / 60)
         seconds = int(time_diff % 60)
         message = "Processing completed in %s minutes %s seconds." % (minutes, seconds)
@@ -1052,8 +1052,8 @@ The longest phrase: %s seconds """ % (self.model.num_en_subs, self.model.num_ru_
         self.deckComboBox.setSizePolicy(QtGui.QSizePolicy.Expanding,
                 QtGui.QSizePolicy.Preferred)
         self.deckComboBox.addItems(self.model.recent_deck_names)
-        self.deckComboBox.setCurrentIndex(self.deckComboBox.count()-1)
-        
+        self.deckComboBox.clearEditText()
+                
         hbox = QtGui.QHBoxLayout()
         hbox.addWidget(self.deckComboBox)
 
