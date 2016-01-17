@@ -232,9 +232,11 @@ class Model(object):
         self.en_srt = ""
         self.ru_srt = ""
 
-        self.out_en_srt = "out.en.srt"
-        self.out_ru_srt = "out.ru.srt"
+        self.out_en_srt_suffix = "out.en.srt"
+        self.out_ru_srt_suffix = "out.ru.srt"
 
+        self.out_en_srt = ""
+        self.out_ru_srt = ""
 
         self.encodings = ["utf-8", "cp1251"]
         self.sub_encoding = None
@@ -261,6 +263,8 @@ class Model(object):
 
         self.recent_deck_names = deque(maxlen = 5)
 
+        self.is_write_output_subtitles = False
+
     def load_settings(self):
         self.default_settings()
 
@@ -279,6 +283,7 @@ class Model(object):
         self.is_split_long_phrases = config.getboolean('main', 'is_split_long_phrases')
         self.phrases_duration_limit = config.getint('main', 'phrases_duration_limit')
         self.mode = config.get('main', 'mode')
+        self.is_write_output_subtitles = config.getboolean('main', 'is_write_output_subtitles')
 
         value = [e.strip() for e in config.get('main', 'recent_deck_names').split(',')]
         if len(value) != 0:
@@ -296,6 +301,7 @@ class Model(object):
         config.set('main', 'is_split_long_phrases', str(self.is_split_long_phrases))
         config.set('main', 'phrases_duration_limit', str(self.phrases_duration_limit))
         config.set('main', 'mode', self.mode)
+        config.set('main', 'is_write_output_subtitles', str(self.is_write_output_subtitles))
         
         config.set('main', 'recent_deck_names', ",".join(reversed(self.recent_deck_names)))
   
@@ -389,6 +395,8 @@ class Model(object):
         print "Audio id: %s" % self.audio_id
         print "English subtitles: %s" % self.en_srt
         print "Russian subtitles: %s" % self.ru_srt
+        print "English subtitles output: %s" % self.out_en_srt
+        print "Russian subtitles output: %s" % self.out_ru_srt
         print "Output Directory: %s" % self.directory
         print "Deck name: %s" % self.deck_name
         print "Gap between phrases: %s" % self.time_delta
@@ -448,6 +456,9 @@ class Model(object):
             print "Changing duration Russian subtitles..."
             change_subtitles_ending_time(self.ru_subs_phrases)
 
+        self.is_subtitles_created = True
+
+    def write_output_subtitles(self):
         # Записываем английские субтитры
         print "Writing English subtitles..."
         self.write_subtitles(self.out_en_srt, self.en_subs_phrases)
@@ -455,8 +466,6 @@ class Model(object):
         # Записываем русские субтитры
         print "Writing Russian subtitles..."
         self.write_subtitles(self.out_ru_srt, self.ru_subs_phrases)
-
-        self.is_subtitles_created = True
 
     def create_tsv_file(self):
         # Формируем tsv файл для импорта в Anki
@@ -694,11 +703,17 @@ class Example(QtGui.QMainWindow):
     def changeVideoFile(self):
         self.model.video_file = self.videoEdit.text()
         self.dir = os.path.dirname(self.model.video_file)
-        
+
         self.changeAudioStreams()
         
         if not os.path.isfile(self.model.video_file):
             return
+
+        self.model.out_en_srt = self.model.out_en_srt_suffix
+        self.model.out_ru_srt = self.model.out_ru_srt_suffix
+        if len(self.model.video_file) > 4:
+            self.model.out_en_srt = self.model.video_file[:-3] + self.model.out_en_srt
+            self.model.out_ru_srt = self.model.video_file[:-3] + self.model.out_ru_srt
 
         self.changeSubtitles()
 
@@ -751,9 +766,11 @@ class Example(QtGui.QMainWindow):
         if not self.model.is_subtitles_created:
             return
 
+        if self.model.is_write_output_subtitles:
+            self.model.write_output_subtitles()
+
         # show info dialog
-        message = """
-English subtitles: %s
+        message = """English subtitles: %s
 Russian subtitles: %s
 Phrases: %s
 The longest phrase: %s seconds """ % (self.model.num_en_subs, self.model.num_ru_subs, self.model.num_phrases, duration_longest_phrase)
@@ -762,6 +779,10 @@ The longest phrase: %s seconds """ % (self.model.num_en_subs, self.model.num_ru_
     def start(self):
         # subtitles
         self.model.create_subtitles()
+
+        if not self.model.is_subtitles_created:
+            print "Error: subtitles is not created"
+            return
 
         # tsv file
         if len(self.model.deck_name) == 0:
