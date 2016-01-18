@@ -216,9 +216,9 @@ def create_or_clean_collection_dir(basedir, deck_name):
     prefix = format_filename(deck_name)
     directory = os.path.join(basedir, prefix + ".media")
     if os.path.exists(directory):
-        print "Remove dir " + directory
+        print "Remove dir " + directory.encode('utf-8')
         shutil.rmtree(directory)
-    print "Create dir " + directory
+    print "Create dir " + directory.encode('utf-8')
     os.makedirs(directory)
 
 class Model(object):
@@ -418,10 +418,6 @@ class Model(object):
         print "with encoding: %s" % self.sub_encoding 
         print "English subtitles: %s" % len(en_subs)
 
-        if len(en_subs) == 0:
-            print "Error: english subtitles can't be empty"
-            return
-
         # Разбиваем субтитры на фразы
         self.en_subs_phrases = convert_into_phrases(en_subs, self.time_delta, self.phrases_duration_limit, self.is_split_long_phrases)
         print "English phrases: %s" % len(self.en_subs_phrases)
@@ -555,6 +551,8 @@ class VideoWorker(QtCore.QThread):
             self.updateProgress.emit(100)
             self.jobFinished.emit(time_diff)
 
+            print "Canceled"
+
         print "Done"
 
 class Example(QtGui.QMainWindow):
@@ -631,14 +629,12 @@ class Example(QtGui.QMainWindow):
     def showSubsEngFileDialog(self):
         fname, _ = QtGui.QFileDialog.getOpenFileName(dir = self.dir, filter = "Subtitle Files (*.srt)")
         self.subsEngEdit.setText(fname)
-        self.model.en_srt = fname
 
         self.dir = os.path.dirname(fname)
 
     def showSubsRusFileDialog(self):
         fname, _ = QtGui.QFileDialog.getOpenFileName(dir = self.dir, filter = "Subtitle Files (*.srt)")
         self.subsRusEdit.setText(fname)
-        self.model.ru_srt = fname
 
         self.dir = os.path.dirname(fname)
 
@@ -649,6 +645,9 @@ class Example(QtGui.QMainWindow):
             self.model.directory = fname
 
         self.outDirEdit.setText(self.model.directory)
+
+    def showErrorDialog(self, message):
+        QtGui.QMessageBox.critical(self, "movies2anki", message)
 
     def tryToSetEngAudio(self):
         eng_id = len(self.audio_streams) - 1
@@ -705,7 +704,7 @@ class Example(QtGui.QMainWindow):
         self.subsRusEdit.setText(self.model.ru_srt)
 
     def changeVideoFile(self):
-        self.model.video_file = self.videoEdit.text()
+        self.model.video_file = self.videoEdit.text().strip()
         self.dir = os.path.dirname(self.model.video_file)
 
         self.changeAudioStreams()
@@ -722,13 +721,13 @@ class Example(QtGui.QMainWindow):
         self.changeSubtitles()
 
     def changeEngSubs(self):
-        self.model.en_srt = self.subsEngEdit.text()
+        self.model.en_srt = self.subsEngEdit.text().strip()
 
     def changeRusSubs(self):
-        self.model.ru_srt = self.subsRusEdit.text()
+        self.model.ru_srt = self.subsRusEdit.text().strip()
 
     def changeOutDir(self):
-        self.model.directory = self.outDirEdit.text()
+        self.model.directory = self.outDirEdit.text().strip()
 
     def setVideoWidth(self):
         self.model.video_width = self.widthSpinBox.value()
@@ -758,16 +757,36 @@ class Example(QtGui.QMainWindow):
         self.model.mode = "Phrases"
 
     def setDeckName(self):
-        self.model.deck_name = self.deckComboBox.currentText()
+        self.model.deck_name = self.deckComboBox.currentText().strip()
+
+    def validateSubtitles(self):
+        if len(self.model.en_srt) == 0:
+            self.showErrorDialog("Add english subtitles.")
+            return False
+
+        if not os.path.isfile(self.model.en_srt):
+            self.showErrorDialog("English subtitles didn't exist.")
+            return False
+
+        if len(self.model.ru_srt) != 0:
+            if not os.path.isfile(self.model.ru_srt):
+                self.showErrorDialog("Russian subtitles didn't exist.")
+                return False
+
+        return True
 
     def preview(self):
         # save settings
         self.model.save_settings()
 
+        if not self.validateSubtitles():
+            return
+
         # subtitles
         self.model.create_subtitles()
 
         if not self.model.is_subtitles_created:
+            self.showErrorDialog("Check log.txt")
             return
 
         if self.model.is_write_output_subtitles:
@@ -784,19 +803,26 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         QtGui.QMessageBox.information(self, "Preview", message)
 
     def start(self):
+        if not self.validateSubtitles():
+            return
+
         # subtitles
         self.model.create_subtitles()
 
         if not self.model.is_subtitles_created:
-            print "Error: subtitles is not created"
+            self.showErrorDialog("Check log.txt")
             return
 
         # tsv file
         if len(self.model.deck_name) == 0:
-            print "Error: deck name can't be empty"
+            self.showErrorDialog("Deck's name can't be empty.")
             return
 
         self.updateDeckComboBox()
+
+        if not os.path.isdir(self.model.directory):
+            self.showErrorDialog("Output directory didn't exist.")
+            return
 
         # save settings
         self.model.save_settings()
@@ -804,7 +830,11 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         self.model.create_tsv_file()
 
         if len(self.model.video_file) == 0:
-            print "Error: video file name can't be empty"
+            self.showErrorDialog("Video file name can't be empty.")
+            return
+
+        if not os.path.isfile(self.model.video_file):
+            self.showErrorDialog("Video file didn't exist.")
             return
 
         # create or remove & create colletion.media directory
@@ -827,12 +857,13 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         QtGui.QMessageBox.information(self, "movies2anki", message)
 
     def updateDeckComboBox(self):
-        if self.deckComboBox.findText(self.deckComboBox.currentText()) == -1:
-            self.deckComboBox.addItem(self.deckComboBox.currentText())
-            self.model.recent_deck_names.append(self.deckComboBox.currentText())
+        text = self.deckComboBox.currentText().strip()
+        if self.deckComboBox.findText(text) == -1:
+            self.deckComboBox.addItem(text)
+            self.model.recent_deck_names.append(text)
         else:
-            self.model.recent_deck_names.remove(self.deckComboBox.currentText())
-            self.model.recent_deck_names.append(self.deckComboBox.currentText())
+            self.model.recent_deck_names.remove(text)
+            self.model.recent_deck_names.append(text)
 
         self.deckComboBox.clear()
         self.deckComboBox.addItems(self.model.recent_deck_names)
