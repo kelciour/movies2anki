@@ -43,7 +43,18 @@ def seconds_to_ffmpeg_time(time):
 def fix_empty_lines(content):
     return re.sub('\n\n+', '\n\n', content)
 
-def read_subtitles(content):
+def is_not_sdh_subtitle(sub):
+    reg_exp_round_braces = r"^\([^)]*\)(\s*\([^)]*\))*$"
+    reg_exp_square_braces = r"^\[[^\]]*\](\s*\[[^\]]*\])*$"
+
+    if re.match(reg_exp_round_braces, sub):
+        return False
+    elif re.match(reg_exp_square_braces, sub):
+        return False
+
+    return True
+
+def read_subtitles(content, is_ignore_SDH):
     en_subs = []
     
     for sub in content.strip().split('\n\n'):
@@ -55,9 +66,15 @@ def read_subtitles(content):
             sub_end = srt_time_to_seconds(sub_timecode[1].strip())
             sub_content = " ".join(sub_chunks[2:]).strip()
 
-            en_subs.append((sub_start, sub_end, sub_content))
+            if not is_ignore_SDH:
+                en_subs.append((sub_start, sub_end, sub_content))
+            else:
+                if is_not_sdh_subtitle(sub_content):
+                    en_subs.append((sub_start, sub_end, sub_content))
+                else:
+                    print "Ignore subtitle: %s" % repr(sub_content)
         else:
-            print "%s" % repr(sub)
+            print "Ignore subtitle: %s" % repr(sub)
    
     return en_subs
 
@@ -264,6 +281,7 @@ class Model(object):
         self.recent_deck_names = deque(maxlen = 5)
 
         self.is_write_output_subtitles = False
+        self.is_ignore_sdh_subtitle = True
 
     def load_settings(self):
         self.default_settings()
@@ -284,6 +302,7 @@ class Model(object):
         self.phrases_duration_limit = config.getint('main', 'phrases_duration_limit')
         self.mode = config.get('main', 'mode')
         self.is_write_output_subtitles = config.getboolean('main', 'is_write_output_subtitles')
+        self.is_ignore_sdh_subtitle = config.getboolean('main', 'is_ignore_sdh_subtitle')
 
         value = [e.strip() for e in config.get('main', 'recent_deck_names').split(',')]
         if len(value) != 0:
@@ -302,6 +321,7 @@ class Model(object):
         config.set('main', 'phrases_duration_limit', str(self.phrases_duration_limit))
         config.set('main', 'mode', self.mode)
         config.set('main', 'is_write_output_subtitles', str(self.is_write_output_subtitles))
+        config.set('main', 'is_ignore_sdh_subtitle', str(self.is_ignore_sdh_subtitle))
         
         config.set('main', 'recent_deck_names', ",".join(reversed(self.recent_deck_names)))
   
@@ -321,7 +341,7 @@ class Model(object):
         self.sub_encoding = None
         return file_content
 
-    def load_subtitle(self, filename):
+    def load_subtitle(self, filename, is_ignore_SDH):
         if len(filename) == 0:
             return []
 
@@ -336,7 +356,7 @@ class Model(object):
         file_content = self.convert_to_unicode(file_content)
 
         ## Читаем субтитры
-        return read_subtitles(file_content)
+        return read_subtitles(file_content, is_ignore_SDH)
 
     def encode_str(self, enc_str):
         if self.sub_encoding == None:
@@ -398,6 +418,7 @@ class Model(object):
         print "English subtitles output: %s" % self.out_en_srt.encode('utf-8')
         print "Russian subtitles output: %s" % self.out_ru_srt.encode('utf-8')
         print "Write output subtitles: %s" % self.is_write_output_subtitles
+        print "Ignore SDH subtitles: %s" % self.is_ignore_sdh_subtitle
         print "Output Directory: %s" % self.directory.encode('utf-8')
         print "Video width: %s" % self.video_width
         print "Video height: %s" % self.video_height
@@ -413,9 +434,9 @@ class Model(object):
         self.is_subtitles_created = False
 
         # Загружаем английские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
-        print "Loading English subtitles...", 
-        en_subs = self.load_subtitle(self.en_srt)
-        print "with encoding: %s" % self.sub_encoding 
+        print "Loading English subtitles..."
+        en_subs = self.load_subtitle(self.en_srt, self.is_ignore_sdh_subtitle)
+        print "Encoding: %s" % self.sub_encoding 
         print "English subtitles: %s" % len(en_subs)
 
         # Разбиваем субтитры на фразы
@@ -423,9 +444,9 @@ class Model(object):
         print "English phrases: %s" % len(self.en_subs_phrases)
 
         # Загружаем русские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
-        print "Loading Russian subtitles...", 
-        ru_subs = self.load_subtitle(self.ru_srt)
-        print "with encoding: %s" % self.sub_encoding 
+        print "Loading Russian subtitles..."
+        ru_subs = self.load_subtitle(self.ru_srt, self.is_ignore_sdh_subtitle)
+        print "Encoding: %s" % self.sub_encoding 
         print "Russian subtitles: %s" % len(ru_subs)
 
         # Для preview диалога
@@ -790,6 +811,7 @@ class Example(QtGui.QMainWindow):
             return
 
         if self.model.is_write_output_subtitles:
+            print "Writing output subtitles with phrases..."
             self.model.write_output_subtitles()
 
         minutes = int(duration_longest_phrase / 60)
