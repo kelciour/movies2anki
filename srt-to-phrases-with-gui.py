@@ -200,8 +200,8 @@ def change_subtitles_ending_time(subs):
 def guess_srt_file(video_file, mask_list, default_filename):
     for mask in mask_list:
         glob_result = glob.glob(video_file[:-4] + mask)
-        if len(glob_result) == 1:
-            print "Found subtitle: " + glob_result[0]
+        if len(glob_result) >= 1:
+            print ("Found subtitle: " + glob_result[0]).encode('utf-8')
             return glob_result[0]
     else:
         return default_filename
@@ -391,22 +391,23 @@ class Model(object):
 
     def create_subtitles(self):
         print "--------------------------"
-        print "Video file: %s" % self.video_file
+        print "Video file: %s" % self.video_file.encode('utf-8')
         print "Audio id: %s" % self.audio_id
-        print "English subtitles: %s" % self.en_srt
-        print "Russian subtitles: %s" % self.ru_srt
-        print "English subtitles output: %s" % self.out_en_srt
-        print "Russian subtitles output: %s" % self.out_ru_srt
-        print "Output Directory: %s" % self.directory
-        print "Deck name: %s" % self.deck_name
+        print "English subtitles: %s" % self.en_srt.encode('utf-8')
+        print "Russian subtitles: %s" % self.ru_srt.encode('utf-8')
+        print "English subtitles output: %s" % self.out_en_srt.encode('utf-8')
+        print "Russian subtitles output: %s" % self.out_ru_srt.encode('utf-8')
+        print "Write output subtitles: %s" % self.is_write_output_subtitles
+        print "Output Directory: %s" % self.directory.encode('utf-8')
+        print "Video width: %s" % self.video_width
+        print "Video height: %s" % self.video_height
+        print "Pad start: %s" % self.shift_start
+        print "Pad end: %s" % self.shift_end
         print "Gap between phrases: %s" % self.time_delta
         print "Split Long Phrases: %s" % self.is_split_long_phrases
         print "Max length phrases: %s" % self.phrases_duration_limit
-        print "Video width: %s" % self.video_width
-        print "Video height: %s" % self.video_height
-        print "Shift start: %s" % self.shift_start
-        print "Shift end: %s" % self.shift_end
         print "Mode: %s" % self.mode
+        print "Deck name: %s" % self.deck_name.encode('utf-8')
         print "--------------------------"
 
         self.is_subtitles_created = False
@@ -504,7 +505,6 @@ class VideoWorker(QtCore.QThread):
     updateProgress = QtCore.Signal(int)
     updateTitle = QtCore.Signal(str)
     jobFinished = QtCore.Signal(float)
-    jobCanceled = QtCore.Signal()
 
     def __init__(self, data):
         QtCore.QThread.__init__(self)
@@ -536,11 +536,16 @@ class VideoWorker(QtCore.QThread):
 
             print ss
             self.updateTitle.emit(ss)
-            
-            self.model.p = Popen(["ffmpeg", "-ss", ss, "-i", self.model.video_file, "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264",
-                    "-s", self.video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", filename + ".mp4"])
+
+            cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264", "-s", self.video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", '"' + filename + ".mp4" + '"'])
+            self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()))
             self.model.p.wait()
-            self.model.p = Popen(["ffmpeg", "-ss", ss, "-i", self.model.video_file, "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.model.audio_id), "-copyts", filename + ".mp3"])
+
+            if self.canceled:
+                break
+
+            cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.model.audio_id), "-copyts", '"' + filename + ".mp3" + '"'])
+            self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()))
             self.model.p.wait()
 
         time_end = time.time()
@@ -549,8 +554,6 @@ class VideoWorker(QtCore.QThread):
         if not self.canceled:
             self.updateProgress.emit(100)
             self.jobFinished.emit(time_diff)
-        else:
-            self.jobCanceled.emit()
 
         print "Done"
 
@@ -663,9 +666,10 @@ class Example(QtGui.QMainWindow):
         self.audio_streams = []
         
         if not os.path.isfile(video_file):
+            print "Video file not found"
             return
 
-        output = check_output(["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_file])
+        output = check_output(["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_file.encode(sys.getfilesystemencoding())])
         json_data = json.loads(output)
         streams = json_data["streams"]
 
@@ -769,11 +773,14 @@ class Example(QtGui.QMainWindow):
         if self.model.is_write_output_subtitles:
             self.model.write_output_subtitles()
 
+        minutes = int(duration_longest_phrase / 60)
+        seconds = int(duration_longest_phrase % 60)
+
         # show info dialog
         message = """English subtitles: %s
 Russian subtitles: %s
 Phrases: %s
-The longest phrase: %s seconds """ % (self.model.num_en_subs, self.model.num_ru_subs, self.model.num_phrases, duration_longest_phrase)
+The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num_ru_subs, self.model.num_phrases, minutes, seconds)
         QtGui.QMessageBox.information(self, "Preview", message)
 
     def start(self):
@@ -831,22 +838,10 @@ The longest phrase: %s seconds """ % (self.model.num_en_subs, self.model.num_ru_
         self.deckComboBox.addItems(self.model.recent_deck_names)
         self.deckComboBox.setCurrentIndex(self.deckComboBox.count()-1)
 
-    def dismissProgressDialog(self):
-        self.msgButton.setEnabled(True)
-        self.msgBox.setText("          Done.           ")
-
     def cancelProgressDialog(self):
         self.worker.cancel()
         if self.model.p != None:
             self.model.p.terminate()
-
-        self.msgBox = QtGui.QMessageBox()
-        self.msgButton = QtGui.QPushButton("OK")
-        self.msgBox.setWindowTitle("movies2anki")
-        self.msgBox.setText("      Terminating...      ")
-        self.msgBox.addButton(self.msgButton, QtGui.QMessageBox.YesRole)
-        self.msgButton.setEnabled(False)
-        self.msgBox.show()
 
     def convert_video(self):
         self.progressDialog = QtGui.QProgressDialog(self)
@@ -863,7 +858,6 @@ The longest phrase: %s seconds """ % (self.model.num_en_subs, self.model.num_ru_
         self.worker.updateProgress.connect(self.setProgress)
         self.worker.updateTitle.connect(self.setTitle)
         self.worker.jobFinished.connect(self.finishProgressDialog)
-        self.worker.jobCanceled.connect(self.dismissProgressDialog)
 
         self.progressDialog.canceled.connect(self.cancelProgressDialog)
         self.progressDialog.setFixedSize(300, self.progressDialog.height())
@@ -1100,4 +1094,8 @@ def main():
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
+    sys.stderr = open('log.txt', 'w')
+    sys.stdout = sys.stderr
     main()
+    sys.stderr.close()
+    sys.stderr = sys.__stderr__
