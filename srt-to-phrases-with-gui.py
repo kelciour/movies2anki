@@ -203,7 +203,8 @@ def change_subtitles_ending_time(subs):
         (start_time, end_time, subtitle) = subs[idx]
         (prev_start_time, prev_end_time, prev_subtitle) = subs[idx - 1]
 
-        subs[idx - 1] = (prev_start_time, start_time, prev_subtitle)
+        if prev_end_time < start_time:
+            subs[idx - 1] = (prev_start_time, start_time, prev_subtitle)
 
     (start_time, end_time, subtitle) = subs[0]
     if start_time > 15:
