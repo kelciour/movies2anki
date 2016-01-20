@@ -206,7 +206,7 @@ def change_subtitles_ending_time(subs):
         subs[idx - 1] = (prev_start_time, start_time, prev_subtitle)
 
     (start_time, end_time, subtitle) = subs[0]
-    if start_time > 5:
+    if start_time > 15:
         subs.insert(0, (0.0, start_time, ""))
     else:
         subs[0] = (0.0, end_time, subtitle)
@@ -252,8 +252,8 @@ class Model(object):
         self.out_en_srt_suffix = "out.en.srt"
         self.out_ru_srt_suffix = "out.ru.srt"
 
-        self.out_en_srt = ""
-        self.out_ru_srt = ""
+        self.out_en_srt = "out.en.srt"
+        self.out_ru_srt = "out.ru.srt"
 
         self.encodings = ["utf-8", "cp1251"]
         self.sub_encoding = None
