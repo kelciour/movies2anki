@@ -122,18 +122,46 @@ def split_long_phrases(en_subs, phrases_duration_limit):
                 s_content = s[2]
 
                 pos = int((s_end - sub_start) / sub_chunks_limit)
+                
                 sub_splitted[pos].append((s_start, s_end, s_content))
 
             for s in sub_splitted:
-                subs.append(s)
+                if len(s) != 0:
+                    subs.append(s)
         else:
             subs.append(sub)
 
     return subs
 
+def convert_into_sentences(en_subs):
+    subs = []
+
+    for sub in en_subs:
+        sub_start = sub[0]
+        sub_end = sub[1]
+        sub_content = sub[2]
+
+        if len(subs) > 0: 
+            prev_sub_start = subs[-1][0]
+            prev_sub_end = subs[-1][1]
+            prev_sub_content = subs[-1][2]
+
+            if ((sub_start - prev_sub_end) < 1.5 and (sub_end - prev_sub_start) < 20 and 
+                prev_sub_content[-1] != '.' and 
+                prev_sub_content[-1] != '?' and
+                prev_sub_content[-1] != '!'):
+
+                subs[-1] = (prev_sub_start, sub_end, prev_sub_content + " " + sub_content)
+            else:
+                subs.append((sub_start, sub_end, sub_content))
+        else:
+            subs.append((sub_start, sub_end, sub_content))
+
+    return subs
+
 def convert_into_phrases(en_subs, time_delta, phrases_duration_limit, is_split_long_phrases):
     subs = []
-    
+
     for sub in en_subs:
         sub_start = sub[0]
         sub_end = sub[1]
@@ -440,8 +468,12 @@ class Model(object):
         print "Encoding: %s" % self.sub_encoding 
         print "English subtitles: %s" % len(en_subs)
 
+        # Разбиваем субтитры на предложения
+        self.en_subs_sentences = convert_into_sentences(en_subs)
+        print "English sentences: %s" % len(self.en_subs_sentences)
+
         # Разбиваем субтитры на фразы
-        self.en_subs_phrases = convert_into_phrases(en_subs, self.time_delta, self.phrases_duration_limit, self.is_split_long_phrases)
+        self.en_subs_phrases = convert_into_phrases(self.en_subs_sentences, self.time_delta, self.phrases_duration_limit, self.is_split_long_phrases)
         print "English phrases: %s" % len(self.en_subs_phrases)
 
         # Загружаем русские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
@@ -719,7 +751,7 @@ class Example(QtGui.QMainWindow):
         self.tryToSetEngAudio()
 
     def changeSubtitles(self):
-        self.model.en_srt = guess_srt_file(self.model.video_file, ["*eng*.srt", "*en*.srt"], "")
+        self.model.en_srt = guess_srt_file(self.model.video_file, ["*eng*.srt", "*en*.srt", ".srt"], "")
         self.subsEngEdit.setText(self.model.en_srt)
 
         self.model.ru_srt = guess_srt_file(self.model.video_file, ["*rus*.srt", "*ru*.srt"], "")
@@ -1059,7 +1091,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         self.splitLongPhrasesGroupBox.clicked.connect(self.setSplitLongPhrases)
 
         self.splitPhrasesSpinBox = QtGui.QSpinBox()
-        self.splitPhrasesSpinBox.setRange(0, 6000)
+        self.splitPhrasesSpinBox.setRange(1, 6000)
         self.splitPhrasesSpinBox.setSingleStep(10)
         self.splitPhrasesSpinBox.setValue(self.model.getPhrasesDurationLimit())
 
