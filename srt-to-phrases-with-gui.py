@@ -967,7 +967,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
             return
 
         try:
-            call(["ffmpeg", "-version"])
+            call(["ffmpeg", "-version"], **subprocess_args())
         except WindowsError as ex: 
             print "Can't find ffmpeg", ex
             self.showErrorDialog("Can't find ffmpeg")
@@ -1266,6 +1266,10 @@ def main():
 if __name__ == '__main__':
     sys.stderr = open('log.txt', 'w')
     sys.stdout = sys.stderr
+
+    os.environ["PATH"] += os.pathsep + "." + os.sep + "ffmpeg" + os.sep + "bin"
+
     main()
+    
     sys.stderr.close()
     sys.stderr = sys.__stderr__
