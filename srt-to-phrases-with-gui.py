@@ -13,6 +13,7 @@ import time
 from collections import deque
 from ConfigParser import SafeConfigParser
 from PySide import QtCore, QtGui
+from subprocess import call
 from subprocess import check_output
 from subprocess import Popen
 
@@ -638,6 +639,7 @@ class VideoWorker(QtCore.QThread):
             self.updateTitle.emit(ss)
 
             cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264", "-s", self.video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", '"' + filename + ".mp4" + '"'])
+            print cmd
             self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), **subprocess_args())
             self.model.p.wait()
 
@@ -645,6 +647,7 @@ class VideoWorker(QtCore.QThread):
                 break
 
             cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.model.audio_id), "-copyts", '"' + filename + ".mp3" + '"'])
+            print cmd
             self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), **subprocess_args())
             self.model.p.wait()
 
@@ -787,7 +790,13 @@ class Example(QtGui.QMainWindow):
             print "Video file not found"
             return
 
-        output = check_output(["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_file.encode(sys.getfilesystemencoding())], **subprocess_args(False))
+        try:
+            output = check_output(["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_file.encode(sys.getfilesystemencoding())], **subprocess_args(False))
+        except WindowsError as ex:
+            self.model.audio_id = 0
+            print "Can't find ffprobe", ex
+            return
+
         json_data = json.loads(output)
         streams = json_data["streams"]
 
@@ -955,6 +964,13 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
         if not os.path.isfile(self.model.video_file):
             self.showErrorDialog("Video file didn't exist.")
+            return
+
+        try:
+            call(["ffmpeg", "-version"])
+        except WindowsError as ex: 
+            print "Can't find ffmpeg", ex
+            self.showErrorDialog("Can't find ffmpeg")
             return
 
         # create or remove & create colletion.media directory
