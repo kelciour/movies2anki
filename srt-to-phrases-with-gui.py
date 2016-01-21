@@ -16,6 +16,65 @@ from PySide import QtCore, QtGui
 from subprocess import check_output
 from subprocess import Popen
 
+import subprocess
+import os.path
+
+# Determine if we're frozen with Pyinstaller or not.
+if getattr(sys, 'frozen', False):
+    isFrozen = True
+else:
+    isFrozen = False
+
+# Create a set of arguments which make a ``subprocess.Popen`` (and
+# variants) call work with or without Pyinstaller, ``--noconsole`` or
+# not, on Windows and Linux. Typical use::
+#
+#   subprocess.call(['program_to_run', 'arg_1'], **subprocess_args())
+#
+# When calling ``check_output``::
+#
+#   subprocess.check_output(['program_to_run', 'arg_1'],
+#                           **subprocess_args(False))
+def subprocess_args(include_stdout=True):
+    # The following is true only on Windows.
+    if hasattr(subprocess, 'STARTUPINFO'):
+        # On Windows, subprocess calls will pop up a command window by default
+        # when run from Pyinstaller with the ``--noconsole`` option. Avoid this
+        # distraction.
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        # Windows doesn't search the path by default. Pass it an environment so
+        # it will.
+        env = os.environ
+    else:
+        si = None
+        env = None
+
+    # ``subprocess.check_output`` doesn't allow specifying ``stdout``::
+    #
+    #   Traceback (most recent call last):
+    #     File "test_subprocess.py", line 58, in <module>
+    #       **subprocess_args(stdout=None))
+    #     File "C:\Python27\lib\subprocess.py", line 567, in check_output
+    #       raise ValueError('stdout argument not allowed, it will be overridden.')
+    #   ValueError: stdout argument not allowed, it will be overridden.
+    #
+    # So, add it only if it's needed.
+    if include_stdout:
+        ret = {'stdout': subprocess.PIPE}
+    else:
+        ret = {}
+
+    # On Windows, running this from the binary produced by Pyinstaller
+    # with the ``--noconsole`` option requires redirecting everything
+    # (stdin, stdout, stderr) to avoid an OSError exception
+    # "[Error 6] the handle is invalid."
+    ret.update({'stdin': subprocess.PIPE,
+                'stderr': subprocess.PIPE,
+                'startupinfo': si,
+                'env': env })
+    return ret
+
 def srt_time_to_seconds(time):
     split_time = time.split(',')
     major, minor = (split_time[0].split(':'), split_time[1])
@@ -257,15 +316,6 @@ def format_filename(deck_name):
     filename = ''.join(c for c in deck_name if c in valid_chars)
     filename = filename.replace(' ','_')
     return filename
-
-def create_or_clean_collection_dir(basedir, deck_name):
-    prefix = format_filename(deck_name)
-    directory = os.path.join(basedir, prefix + ".media")
-    if os.path.exists(directory):
-        print "Remove dir " + directory.encode('utf-8')
-        shutil.rmtree(directory)
-    print "Create dir " + directory.encode('utf-8')
-    os.makedirs(directory)
 
 class Model(object):
     def __init__(self):
@@ -588,14 +638,14 @@ class VideoWorker(QtCore.QThread):
             self.updateTitle.emit(ss)
 
             cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264", "-s", self.video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", '"' + filename + ".mp4" + '"'])
-            self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()))
+            self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), **subprocess_args())
             self.model.p.wait()
 
             if self.canceled:
                 break
 
             cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.model.audio_id), "-copyts", '"' + filename + ".mp3" + '"'])
-            self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()))
+            self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), **subprocess_args())
             self.model.p.wait()
 
         time_end = time.time()
@@ -703,6 +753,21 @@ class Example(QtGui.QMainWindow):
     def showErrorDialog(self, message):
         QtGui.QMessageBox.critical(self, "movies2anki", message)
 
+    def create_or_clean_collection_dir(self, basedir, deck_name):
+        prefix = format_filename(deck_name)
+        directory = os.path.join(basedir, prefix + ".media")
+        if os.path.exists(directory):
+            print "Remove dir " + directory.encode('utf-8')
+            shutil.rmtree(directory)
+            time.sleep(0.5)
+        print "Create dir " + directory.encode('utf-8')
+        try:
+            os.makedirs(directory)
+        except WindowsError as ex:
+            print ex
+            return False
+        return True
+
     def tryToSetEngAudio(self):
         eng_id = len(self.audio_streams) - 1
         for cur_id in range(len(self.audio_streams)):
@@ -722,7 +787,7 @@ class Example(QtGui.QMainWindow):
             print "Video file not found"
             return
 
-        output = check_output(["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_file.encode(sys.getfilesystemencoding())])
+        output = check_output(["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_file.encode(sys.getfilesystemencoding())], **subprocess_args(False))
         json_data = json.loads(output)
         streams = json_data["streams"]
 
@@ -893,7 +958,10 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
             return
 
         # create or remove & create colletion.media directory
-        create_or_clean_collection_dir(self.model.directory, self.model.deck_name)
+        ret = self.create_or_clean_collection_dir(self.model.directory, self.model.deck_name)
+        if ret == False:
+            self.showErrorDialog("Can't create or clean media directory")
+            return
 
         # video & audio files
         self.convert_video()
