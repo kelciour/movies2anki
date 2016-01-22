@@ -639,16 +639,16 @@ class VideoWorker(QtCore.QThread):
             self.updateTitle.emit(ss)
 
             cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264", "-s", self.video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", '"' + filename + ".mp4" + '"'])
-            print cmd
-            self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), **subprocess_args())
+            print cmd.encode('utf-8')
+            self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), shell=True, **subprocess_args())
             self.model.p.wait()
 
             if self.canceled:
                 break
 
             cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.model.audio_id), "-copyts", '"' + filename + ".mp3" + '"'])
-            print cmd
-            self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), **subprocess_args())
+            print cmd.encode('utf-8')
+            self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), shell=True, **subprocess_args())
             self.model.p.wait()
 
         time_end = time.time()
