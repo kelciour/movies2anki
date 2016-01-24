@@ -126,13 +126,16 @@ def read_subtitles(content, is_ignore_SDH):
             sub_end = srt_time_to_seconds(sub_timecode[1].strip())
             sub_content = " ".join(sub_chunks[2:]).strip()
 
-            if not is_ignore_SDH:
-                en_subs.append((sub_start, sub_end, sub_content))
-            else:
-                if is_not_sdh_subtitle(sub_content):
+            if len(sub_content) > 0:
+                if not is_ignore_SDH:
                     en_subs.append((sub_start, sub_end, sub_content))
                 else:
-                    print "Ignore subtitle: %s" % repr(sub_content)
+                    if is_not_sdh_subtitle(sub_content):
+                        en_subs.append((sub_start, sub_end, sub_content))
+                    else:
+                        print "Ignore subtitle: %s" % repr(sub_content)
+            else:
+                print "Empty subtitle: %s" % repr(sub)
         else:
             print "Ignore subtitle: %s" % repr(sub)
    
