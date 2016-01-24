@@ -196,7 +196,7 @@ def split_long_phrases(en_subs, phrases_duration_limit):
 
     return subs
 
-def convert_into_sentences(en_subs):
+def convert_into_sentences(en_subs, phrases_duration_limit):
     subs = []
 
     for sub in en_subs:
@@ -209,7 +209,7 @@ def convert_into_sentences(en_subs):
             prev_sub_end = subs[-1][1]
             prev_sub_content = subs[-1][2]
 
-            if ((sub_start - prev_sub_end) < 1.5 and (sub_end - prev_sub_start) < 20 and 
+            if ((sub_start - prev_sub_end) < 1.5 and (sub_end - prev_sub_start) < phrases_duration_limit and 
                 prev_sub_content[-1] != '.' and 
                 prev_sub_content[-1] != '?' and
                 prev_sub_content[-1] != '!'):
@@ -523,7 +523,7 @@ class Model(object):
         print "English subtitles: %s" % len(en_subs)
 
         # Разбиваем субтитры на предложения
-        self.en_subs_sentences = convert_into_sentences(en_subs)
+        self.en_subs_sentences = convert_into_sentences(en_subs, self.phrases_duration_limit)
         print "English sentences: %s" % len(self.en_subs_sentences)
 
         # Разбиваем субтитры на фразы
