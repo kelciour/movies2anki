@@ -103,6 +103,9 @@ def seconds_to_ffmpeg_time(time):
 def fix_empty_lines(content):
     return re.sub('\n\n+', '\n\n', content)
 
+def fix_odd_number_of_double_quotes(content):
+    return re.sub('"', '&quot;', content)
+
 def is_not_sdh_subtitle(sub):
     reg_exp_round_braces = r"^\([^)]*\)(\s*\([^)]*\))*$"
     reg_exp_square_braces = r"^\[[^\]]*\](\s*\[[^\]]*\])*$"
@@ -434,6 +437,9 @@ class Model(object):
 
         ## Оставляем только одну пустую строку между субтитрами
         file_content = fix_empty_lines(file_content)
+
+        ## Заменяем все двойные кавычки на html code
+        file_content = fix_odd_number_of_double_quotes(file_content)
 
         ## Конвертируем субтитры в Unicode
         file_content = self.convert_to_unicode(file_content)
