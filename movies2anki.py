@@ -103,7 +103,7 @@ def seconds_to_ffmpeg_time(time):
 def fix_empty_lines(content):
     return re.sub('\n\n+', '\n\n', content)
 
-def fix_odd_number_of_double_quotes(content):
+def escape_double_quotes(content):
     return re.sub('"', '&quot;', content)
 
 def is_not_sdh_subtitle(sub):
@@ -438,9 +438,6 @@ class Model(object):
         ## Оставляем только одну пустую строку между субтитрами
         file_content = fix_empty_lines(file_content)
 
-        ## Заменяем все двойные кавычки на html code
-        file_content = fix_odd_number_of_double_quotes(file_content)
-
         ## Конвертируем субтитры в Unicode
         file_content = self.convert_to_unicode(file_content)
 
@@ -476,8 +473,11 @@ class Model(object):
 
             en_sub = en_subs[idx][2]
             en_sub = re.sub('\n', ' ', en_sub)
+            en_sub = escape_double_quotes(en_sub)
+            
             ru_sub = ru_subs[idx][2]
             ru_sub = re.sub('\n', ' ', ru_sub)
+            ru_sub = escape_double_quotes(ru_sub)
 
             tag = prefix
             sequence = str(idx + 1).zfill(3) + "_" + start_time
