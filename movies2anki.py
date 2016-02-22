@@ -765,19 +765,33 @@ class Example(QtGui.QMainWindow):
     def showErrorDialog(self, message):
         QtGui.QMessageBox.critical(self, "movies2anki", message)
 
-    def create_or_clean_collection_dir(self, basedir, deck_name):
+    def showDirAlreadyExistsDialog(self, dir):
+        reply = QtGui.QMessageBox.question(self, "movies2anki",
+            "Folder '" + dir + "' already exists. Do you want to overwrite it?", QtGui.QMessageBox.Yes | 
+            QtGui.QMessageBox.No, QtGui.QMessageBox.No)
+
+        if reply == QtGui.QMessageBox.Yes:
+            return True
+            
+        return False
+        
+    def getNameForCollectionDirectory(self, basedir, deck_name):
         prefix = format_filename(deck_name)
         directory = os.path.join(basedir, prefix + ".media")
+        return directory
+
+    def create_or_clean_collection_dir(self, directory):
         if os.path.exists(directory):
-            print "Remove dir " + directory.encode('utf-8')
-            shutil.rmtree(directory)
-            time.sleep(0.5)
-        print "Create dir " + directory.encode('utf-8')
-        try:
-            os.makedirs(directory)
-        except OSError as ex:
-            print ex
-            return False
+            try:
+                print "Remove dir " + directory.encode('utf-8')
+                shutil.rmtree(directory)
+                time.sleep(0.5)
+                
+                print "Create dir " + directory.encode('utf-8')
+                os.makedirs(directory)
+            except OSError as ex:
+                print ex
+                return False
         return True
 
     def tryToSetEngAudio(self):
@@ -979,13 +993,17 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
             call(["ffmpeg", "-version"], **subprocess_args())
         except OSError as ex: 
             print "Can't find ffmpeg", ex
-            self.showErrorDialog("Can't find ffmpeg")
+            self.showErrorDialog("Can't find ffmpeg.")
             return
 
         # create or remove & create colletion.media directory
-        ret = self.create_or_clean_collection_dir(self.model.directory, self.model.deck_name)
+        collection_dir = self.getNameForCollectionDirectory(self.model.directory, self.model.deck_name)
+        if os.path.exists(collection_dir) and self.showDirAlreadyExistsDialog(collection_dir) == False:
+            return
+
+        ret = self.create_or_clean_collection_dir(collection_dir)
         if ret == False:
-            self.showErrorDialog("Can't create or clean media directory")
+            self.showErrorDialog("Can't create or clean media directory. Try again in a few seconds.")
             return
 
         # video & audio files
