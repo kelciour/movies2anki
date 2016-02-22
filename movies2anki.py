@@ -781,17 +781,18 @@ class Example(QtGui.QMainWindow):
         return directory
 
     def create_or_clean_collection_dir(self, directory):
-        if os.path.exists(directory):
-            try:
+        try:
+            if os.path.exists(directory):
                 print "Remove dir " + directory.encode('utf-8')
                 shutil.rmtree(directory)
                 time.sleep(0.5)
-                
-                print "Create dir " + directory.encode('utf-8')
-                os.makedirs(directory)
-            except OSError as ex:
-                print ex
-                return False
+        
+            print "Create dir " + directory.encode('utf-8')
+            os.makedirs(directory)
+        except OSError as ex:
+            print ex
+            return False
+        
         return True
 
     def tryToSetEngAudio(self):
