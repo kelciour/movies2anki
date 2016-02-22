@@ -775,7 +775,7 @@ class Example(QtGui.QMainWindow):
         print "Create dir " + directory.encode('utf-8')
         try:
             os.makedirs(directory)
-        except WindowsError as ex:
+        except OSError as ex:
             print ex
             return False
         return True
@@ -801,7 +801,7 @@ class Example(QtGui.QMainWindow):
 
         try:
             output = check_output(["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_file.encode(sys.getfilesystemencoding())], **subprocess_args(False))
-        except WindowsError as ex:
+        except OSError as ex:
             self.model.audio_id = 0
             print "Can't find ffprobe", ex
             return
@@ -977,7 +977,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
         try:
             call(["ffmpeg", "-version"], **subprocess_args())
-        except WindowsError as ex: 
+        except OSError as ex: 
             print "Can't find ffmpeg", ex
             self.showErrorDialog("Can't find ffmpeg")
             return
