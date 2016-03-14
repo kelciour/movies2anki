@@ -368,6 +368,7 @@ class Model(object):
 
         self.is_write_output_subtitles = False
         self.is_ignore_sdh_subtitle = True
+        self.is_add_dir_to_media_path = False
 
     def load_settings(self):
         self.default_settings()
@@ -389,7 +390,8 @@ class Model(object):
         self.mode = config.get('main', 'mode')
         self.is_write_output_subtitles = config.getboolean('main', 'is_write_output_subtitles')
         self.is_ignore_sdh_subtitle = config.getboolean('main', 'is_ignore_sdh_subtitle')
-
+        self.is_add_dir_to_media_path = config.getboolean('main', 'is_add_dir_to_media_path')
+        
         value = [e.strip() for e in config.get('main', 'recent_deck_names').split(',')]
         if len(value) != 0:
             self.recent_deck_names.extendleft(value)
@@ -408,6 +410,7 @@ class Model(object):
         config.set('main', 'mode', self.mode)
         config.set('main', 'is_write_output_subtitles', str(self.is_write_output_subtitles))
         config.set('main', 'is_ignore_sdh_subtitle', str(self.is_ignore_sdh_subtitle))
+        config.set('main', 'is_add_dir_to_media_path', str(self.is_add_dir_to_media_path))
         
         config.set('main', 'recent_deck_names', ",".join(reversed(self.recent_deck_names)))
   
@@ -481,8 +484,13 @@ class Model(object):
 
             tag = prefix
             sequence = str(idx + 1).zfill(3) + "_" + start_time
+
             sound = prefix + "_" + start_time + "-" + end_time + ".mp3"
             video = prefix + "_" + start_time + "-" + end_time + ".mp4"
+
+            if self.is_add_dir_to_media_path:
+                sound = prefix + ".media/" + sound
+                video = prefix + ".media/" + video
 
             f_out.write(self.encode_str(tag + "\t" + sequence + "\t[sound:" + sound + "]\t[sound:" + video + "]\t"))
             f_out.write(self.encode_str(en_sub))
