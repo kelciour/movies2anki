@@ -12,7 +12,7 @@ import time
 
 from collections import deque
 from ConfigParser import SafeConfigParser
-from PySide import QtCore, QtGui
+from PyQt4 import QtCore, QtGui
 from subprocess import call
 from subprocess import check_output
 from subprocess import Popen
@@ -620,9 +620,9 @@ class Model(object):
 
 class VideoWorker(QtCore.QThread):
 
-    updateProgress = QtCore.Signal(int)
-    updateTitle = QtCore.Signal(str)
-    jobFinished = QtCore.Signal(float)
+    updateProgress = QtCore.pyqtSignal(int)
+    updateTitle = QtCore.pyqtSignal(str)
+    jobFinished = QtCore.pyqtSignal(float)
 
     def __init__(self, data):
         QtCore.QThread.__init__(self)
@@ -713,7 +713,7 @@ class Example(QtGui.QMainWindow):
         self.subsEngButton.clicked.connect(self.showSubsEngFileDialog)
         self.subsRusButton.clicked.connect(self.showSubsRusFileDialog)
         self.outDirButton.clicked.connect(self.showOutDirectoryDialog)
-        self.deckComboBox.textChanged.connect(self.setDeckName)
+        self.deckComboBox.editTextChanged.connect(self.setDeckName)
         self.previewButton.clicked.connect(self.preview)
         self.startButton.clicked.connect(self.start)
         self.timeSpinBox.valueChanged.connect(self.setTimeDelta)
@@ -747,23 +747,23 @@ class Example(QtGui.QMainWindow):
         QtGui.QMainWindow.closeEvent(self, event)
 
     def showVideoFileDialog(self):
-        fname, _ = QtGui.QFileDialog.getOpenFileName(dir = self.dir, filter = "Video Files (*.avi *.mkv *.mp4 *.ts);;All files (*.*)")
+        fname = unicode(QtGui.QFileDialog.getOpenFileName(directory = self.dir, filter = "Video Files (*.avi *.mkv *.mp4 *.ts);;All files (*.*)"))
         self.videoEdit.setText(fname)
 
     def showSubsEngFileDialog(self):
-        fname, _ = QtGui.QFileDialog.getOpenFileName(dir = self.dir, filter = "Subtitle Files (*.srt)")
+        fname = unicode(QtGui.QFileDialog.getOpenFileName(directory = self.dir, filter = "Subtitle Files (*.srt)"))
         self.subsEngEdit.setText(fname)
 
         self.dir = os.path.dirname(fname)
 
     def showSubsRusFileDialog(self):
-        fname, _ = QtGui.QFileDialog.getOpenFileName(dir = self.dir, filter = "Subtitle Files (*.srt)")
+        fname = unicode(QtGui.QFileDialog.getOpenFileName(directory = self.dir, filter = "Subtitle Files (*.srt)"))
         self.subsRusEdit.setText(fname)
 
         self.dir = os.path.dirname(fname)
 
     def showOutDirectoryDialog(self):
-        fname = QtGui.QFileDialog.getExistingDirectory(dir = self.dir)
+        fname = unicode(QtGui.QFileDialog.getExistingDirectory(directory = self.dir))
 
         if len(fname) != 0:
             self.model.directory = fname
@@ -864,7 +864,7 @@ class Example(QtGui.QMainWindow):
         self.subsRusEdit.setText(self.model.ru_srt)
 
     def changeVideoFile(self):
-        self.model.video_file = self.videoEdit.text().strip()
+        self.model.video_file = unicode(self.videoEdit.text()).strip()
         self.dir = os.path.dirname(self.model.video_file)
 
         self.changeAudioStreams()
@@ -881,13 +881,13 @@ class Example(QtGui.QMainWindow):
         self.changeSubtitles()
 
     def changeEngSubs(self):
-        self.model.en_srt = self.subsEngEdit.text().strip()
+        self.model.en_srt = unicode(self.subsEngEdit.text()).strip()
 
     def changeRusSubs(self):
-        self.model.ru_srt = self.subsRusEdit.text().strip()
+        self.model.ru_srt = unicode(self.subsRusEdit.text()).strip()
 
     def changeOutDir(self):
-        self.model.directory = self.outDirEdit.text().strip()
+        self.model.directory = unicode(self.outDirEdit.text()).strip()
 
     def setVideoWidth(self):
         self.model.video_width = self.widthSpinBox.value()
@@ -917,7 +917,7 @@ class Example(QtGui.QMainWindow):
         self.model.mode = "Phrases"
 
     def setDeckName(self):
-        self.model.deck_name = self.deckComboBox.currentText().strip()
+        self.model.deck_name = unicode(self.deckComboBox.currentText()).strip()
 
     def validateSubtitles(self):
         if len(self.model.en_srt) == 0:
@@ -1032,7 +1032,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         QtGui.QMessageBox.information(self, "movies2anki", message)
 
     def updateDeckComboBox(self):
-        text = self.deckComboBox.currentText().strip()
+        text = unicode(self.deckComboBox.currentText()).strip()
         if self.deckComboBox.findText(text) == -1:
             self.deckComboBox.addItem(text)
             self.model.recent_deck_names.append(text)
