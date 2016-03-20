@@ -52,41 +52,72 @@ This card template I use on my phone. To use on desktop it may be helpful to ins
 * Windows - https://github.com/kelciour/movies2anki/releases
 * Linux and MacOS - [movies2anki-master.zip](https://github.com/kelciour/movies2anki/archive/master.zip)
 
-> For Linux & MacOS users: Python 2.7, FFmpeg, Qt and PySide installed is required to run movies2anki.
+> For Linux & MacOS users: Python 2.7, FFmpeg, Qt and PyQt4 installed is required to run movies2anki.
 
 #### Instructions for Ubuntu 14.04
 
 * Installing Python 2.7
 
-Nothing to do. Python 2.7 is already installed.
+    Nothing to do. Python 2.7 is already installed.
 
 * Installing FFmpeg
 
-```shell
-sudo add-apt-repository ppa:mc3man/trusty-media
-sudo apt-get update
-sudo apt-get install ffmpeg
-```
+    ```shell
+    sudo add-apt-repository ppa:mc3man/trusty-media
+    sudo apt-get update
+    sudo apt-get install ffmpeg
+    ```
 
-* Installing Qt & PySide
+* Installing Qt & PyQt4
 
-```shell
-sudo apt-get install build-essential git cmake libqt4-dev libphonon-dev python2.7-dev libxml2-dev libxslt1-dev qtmobility-dev libqtwebkit-dev python-pip
-sudo pip install pyside
-```
+    Nothing to do. Qt & PyQt4 is already installed.
 
 * Open Terminal and run this command inside the movies2anki folder
 
-```shell
-python movies2anki.py
-```
+    ```shell
+    python movies2anki.py
+    ```
+
+#### Instructions for MacOS
+
+1. Install [Homebrew](http://brew.sh/)
+2. Install FFmpeg
+
+    ```shell
+    brew install ffmpeg
+    ```
+3. Install Qt & PyQt4
+
+    ```shell
+    brew install pyqt
+    ```
+4. Install Python 2.7
+
+    ```shell
+    brew install python
+    ```
+5. Run movies2anki
+
+    ```shell
+    python movies2anki.py
+    ```
 
 #### Troubleshooting
 
 Close movies2anki and look at "log.txt" in the movies2anki folder.
+
+#### Sync between mobile devices and your computer
+
+1. Use AnkiWeb to sync decks
+2. Don't use AnkiWeb to sync media
+  - Disable option "Fetch media on sync" both on mobile and computer version of Anki
+  - Manually sync media via SSH (I use WinSCP for Windows 7 and SSHDroid for Android)
 
 #### Additional Options
 
 File config.ini contains:
 * is_write_output_subtitles - write subtitles with phrases next to the video (default - False)
 * is_ignore_sdh_subtitle - ignore SDH subtitles (default - True)
+* is_add_dir_to_media_path - add "deck_name.media/" to media path in Audio and Video fields (default - False)
+  - If this option is True then you will need to copy "deck_name.media" folder itself into collection.media
+  - But "Check Media..." option in Anki won't working with this cards
