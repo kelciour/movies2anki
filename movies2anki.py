@@ -319,10 +319,16 @@ def guess_srt_file(video_file, mask_list, default_filename):
         return default_filename
 
 def format_filename(deck_name):
-    valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
-    filename = ''.join(c for c in deck_name if c in valid_chars)
-    filename = filename.replace(' ','_')
-    return filename
+    """
+    Returns the given string converted to a string that can be used for a clean
+    filename. Specifically, leading and trailing spaces are removed; other
+    spaces are converted to underscores; and anything that is not a unicode
+    alphanumeric, dash, underscore, or dot, is removed.
+    >>> get_valid_filename("john's portrait in 2004.jpg")
+    'johns_portrait_in_2004.jpg'
+    """
+    s = deck_name.strip().replace(' ', '_')
+    return re.sub(r'(?u)[^-\w.]', '', s)
 
 class Model(object):
     def __init__(self):
@@ -379,7 +385,7 @@ class Model(object):
         config = SafeConfigParser()
         config.read(self.config_file_name)
 
-        self.directory = config.get('main', 'out_directory')
+        self.directory = config.get('main', 'out_directory').decode('utf-8')
         self.video_width = config.getint('main', 'video_width')
         self.video_height = config.getint('main', 'video_height')
         self.shift_start = config.getfloat('main', 'pad_start')
@@ -392,14 +398,14 @@ class Model(object):
         self.is_ignore_sdh_subtitle = config.getboolean('main', 'is_ignore_sdh_subtitle')
         self.is_add_dir_to_media_path = config.getboolean('main', 'is_add_dir_to_media_path')
         
-        value = [e.strip() for e in config.get('main', 'recent_deck_names').split(',')]
+        value = [e.strip() for e in config.get('main', 'recent_deck_names').decode('utf-8').split(',')]
         if len(value) != 0:
             self.recent_deck_names.extendleft(value)
 
     def save_settings(self):
         config = SafeConfigParser()
         config.add_section('main')
-        config.set('main', 'out_directory', self.directory)
+        config.set('main', 'out_directory', self.directory.encode('utf-8'))
         config.set('main', 'video_width', str(self.video_width))
         config.set('main', 'video_height', str(self.video_height))
         config.set('main', 'pad_start', str(self.shift_start))
@@ -412,7 +418,7 @@ class Model(object):
         config.set('main', 'is_ignore_sdh_subtitle', str(self.is_ignore_sdh_subtitle))
         config.set('main', 'is_add_dir_to_media_path', str(self.is_add_dir_to_media_path))
         
-        config.set('main', 'recent_deck_names', ",".join(reversed(self.recent_deck_names)))
+        config.set('main', 'recent_deck_names', ",".join(reversed(self.recent_deck_names)).encode('utf-8'))
   
         with open(self.config_file_name, 'w') as f:
             config.write(f)
