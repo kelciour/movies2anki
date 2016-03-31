@@ -311,7 +311,15 @@ def change_subtitles_ending_time(subs):
 
 def guess_srt_file(video_file, mask_list, default_filename):
     for mask in mask_list:
-        glob_result = glob.glob(video_file[:-4] + mask)
+        glob_pattern = video_file[:-4] + mask
+
+        # replace the left square bracket with [[]
+        glob_pattern = re.sub(r'\[', '[[]', glob_pattern)
+        # replace the right square bracket with []] but be careful not to replace
+        # the right square brackets in the left square bracket's 'escape' sequence.
+        glob_pattern = re.sub(r'(?<!\[)\]', '[]]', glob_pattern)
+
+        glob_result = glob.glob(glob_pattern)
         if len(glob_result) >= 1:
             print ("Found subtitle: " + glob_result[0]).encode('utf-8')
             return glob_result[0]
