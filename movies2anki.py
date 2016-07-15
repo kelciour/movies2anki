@@ -369,7 +369,8 @@ class Model(object):
         self.load_settings()
 
     def default_settings(self):
-        self.directory = os.getcwd()
+        self.input_directory = ""
+        self.output_directory = os.getcwd()
 
         self.time_delta = 1.75
 
@@ -399,7 +400,8 @@ class Model(object):
         config = SafeConfigParser()
         config.read(self.config_file_name)
 
-        self.directory = config.get('main', 'out_directory').decode('utf-8')
+        self.input_directory = config.get('main', 'input_directory').decode('utf-8')
+        self.output_directory = config.get('main', 'output_directory').decode('utf-8')
         self.video_width = config.getint('main', 'video_width')
         self.video_height = config.getint('main', 'video_height')
         self.shift_start = config.getfloat('main', 'pad_start')
@@ -419,7 +421,8 @@ class Model(object):
     def save_settings(self):
         config = SafeConfigParser()
         config.add_section('main')
-        config.set('main', 'out_directory', self.directory.encode('utf-8'))
+        config.set('main', 'input_directory', self.input_directory.encode('utf-8'))
+        config.set('main', 'output_directory', self.output_directory.encode('utf-8'))
         config.set('main', 'video_width', str(self.video_width))
         config.set('main', 'video_height', str(self.video_height))
         config.set('main', 'pad_start', str(self.shift_start))
@@ -536,7 +539,7 @@ class Model(object):
         print "Russian subtitles output: %s" % self.out_ru_srt.encode('utf-8')
         print "Write output subtitles: %s" % self.is_write_output_subtitles
         print "Ignore SDH subtitles: %s" % self.is_ignore_sdh_subtitle
-        print "Output Directory: %s" % self.directory.encode('utf-8')
+        print "Output Directory: %s" % self.output_directory.encode('utf-8')
         print "Video width: %s" % self.video_width
         print "Video height: %s" % self.video_height
         print "Pad start: %s" % self.shift_start
@@ -609,7 +612,7 @@ class Model(object):
     def create_tsv_file(self):
         # Формируем tsv файл для импорта в Anki
         print "Writing tsv file..."
-        self.ffmpeg_split_timestamps = self.write_tsv_file(self.deck_name, self.en_subs_phrases, self.ru_subs_phrases, self.directory)
+        self.ffmpeg_split_timestamps = self.write_tsv_file(self.deck_name, self.en_subs_phrases, self.ru_subs_phrases, self.output_directory)
 
     def getTimeDelta(self):
         return self.time_delta
@@ -668,7 +671,7 @@ class VideoWorker(QtCore.QThread):
             
             self.updateProgress.emit((i * 1.0 / num_files) * 100)
                         
-            filename = self.model.directory + os.sep + prefix + ".media" + os.sep + chunk[0]
+            filename = self.model.output_directory + os.sep + prefix + ".media" + os.sep + chunk[0]
             ss = chunk[1]
             to = chunk[2]
 
@@ -706,7 +709,7 @@ class Example(QtGui.QMainWindow):
         
         self.model = Model()
         self.audio_streams = []
-        self.dir = ""
+        self.directory = self.model.input_directory
         
         self.initUI()
         
@@ -767,28 +770,28 @@ class Example(QtGui.QMainWindow):
         QtGui.QMainWindow.closeEvent(self, event)
 
     def showVideoFileDialog(self):
-        fname = unicode(QtGui.QFileDialog.getOpenFileName(directory = self.dir, filter = "Video Files (*.avi *.mkv *.mp4 *.ts);;All files (*.*)"))
+        fname = unicode(QtGui.QFileDialog.getOpenFileName(directory = self.directory, filter = "Video Files (*.avi *.mkv *.mp4 *.ts);;All files (*.*)"))
         self.videoEdit.setText(fname)
 
     def showSubsEngFileDialog(self):
-        fname = unicode(QtGui.QFileDialog.getOpenFileName(directory = self.dir, filter = "Subtitle Files (*.srt)"))
+        fname = unicode(QtGui.QFileDialog.getOpenFileName(directory = self.directory, filter = "Subtitle Files (*.srt)"))
         self.subsEngEdit.setText(fname)
 
-        self.dir = os.path.dirname(fname)
+        self.directory = os.path.dirname(fname)
 
     def showSubsRusFileDialog(self):
-        fname = unicode(QtGui.QFileDialog.getOpenFileName(directory = self.dir, filter = "Subtitle Files (*.srt)"))
+        fname = unicode(QtGui.QFileDialog.getOpenFileName(directory = self.directory, filter = "Subtitle Files (*.srt)"))
         self.subsRusEdit.setText(fname)
 
-        self.dir = os.path.dirname(fname)
+        self.directory = os.path.dirname(fname)
 
     def showOutDirectoryDialog(self):
-        fname = unicode(QtGui.QFileDialog.getExistingDirectory(directory = self.dir))
+        fname = unicode(QtGui.QFileDialog.getExistingDirectory(directory = self.model.output_directory))
 
         if len(fname) != 0:
-            self.model.directory = fname
+            self.model.output_directory = fname
 
-        self.outDirEdit.setText(self.model.directory)
+        self.outDirEdit.setText(self.model.output_directory)
 
     def showErrorDialog(self, message):
         QtGui.QMessageBox.critical(self, "movies2anki", message)
@@ -885,7 +888,8 @@ class Example(QtGui.QMainWindow):
 
     def changeVideoFile(self):
         self.model.video_file = unicode(self.videoEdit.text()).strip()
-        self.dir = os.path.dirname(self.model.video_file)
+        self.directory = os.path.dirname(self.model.video_file)
+        self.model.input_directory = self.directory
 
         self.changeAudioStreams()
         
@@ -907,7 +911,7 @@ class Example(QtGui.QMainWindow):
         self.model.ru_srt = unicode(self.subsRusEdit.text()).strip()
 
     def changeOutDir(self):
-        self.model.directory = unicode(self.outDirEdit.text()).strip()
+        self.model.output_directory = unicode(self.outDirEdit.text()).strip()
 
     def setVideoWidth(self):
         self.model.video_width = self.widthSpinBox.value()
@@ -1001,7 +1005,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
         self.updateDeckComboBox()
 
-        if not os.path.isdir(self.model.directory):
+        if not os.path.isdir(self.model.output_directory):
             self.showErrorDialog("Output directory didn't exist.")
             return
 
@@ -1026,7 +1030,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
             return
 
         # create or remove & create colletion.media directory
-        collection_dir = self.getNameForCollectionDirectory(self.model.directory, self.model.deck_name)
+        collection_dir = self.getNameForCollectionDirectory(self.model.output_directory, self.model.deck_name)
         if os.path.exists(collection_dir) and self.showDirAlreadyExistsDialog(collection_dir) == False:
             return
 
@@ -1072,7 +1076,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
     def convert_video(self):
         self.progressDialog = QtGui.QProgressDialog(self)
 
-        self.progressDialog.setWindowTitle("Generate Video & Audio")
+        self.progressDialog.setWindowTitle("Generate Video & Audio Clips")
         self.progressDialog.setCancelButtonText("Cancel")
         self.progressDialog.setMinimumDuration(0)
 
@@ -1136,7 +1140,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
         self.outDirButton = QtGui.QPushButton("Directory...")
         self.outDirEdit = QtGui.QLineEdit()
-        self.outDirEdit.setText(self.model.directory)
+        self.outDirEdit.setText(self.model.output_directory)
 
         hbox = QtGui.QHBoxLayout()
         hbox.addWidget(self.outDirButton)
