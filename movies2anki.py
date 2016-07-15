@@ -109,10 +109,16 @@ def escape_double_quotes(content):
 def is_not_sdh_subtitle(sub):
     reg_exp_round_braces = r"^\([^)]*\)(\s*\([^)]*\))*$"
     reg_exp_square_braces = r"^\[[^\]]*\](\s*\[[^\]]*\])*$"
+    reg_exp_round_braces_with_tags = r"^(?:- )?(?:<[^>]+>)*\([^)]*\)(\s*\([^)]*\))*(?:<[^>]+>)*$"
+    reg_exp_round_braces_with_tags_multiline = r"^(\([^)]*\)(\s*\([^)]*\))*|\s|-|(?:<[^>]+>)*)*$"
 
     if re.match(reg_exp_round_braces, sub):
         return False
     elif re.match(reg_exp_square_braces, sub):
+        return False
+    elif re.match(reg_exp_round_braces_with_tags, sub):
+        return False
+    elif re.match(reg_exp_round_braces_with_tags_multiline, sub):
         return False
 
     return True
