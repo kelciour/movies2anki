@@ -81,6 +81,9 @@ def srt_time_to_seconds(time):
     major, minor = (split_time[0].split(':'), split_time[1])
     return int(major[0]) * 3600 + int(major[1]) * 60 + int(major[2]) + float(minor) / 1000
 
+def tsv_time_to_seconds(tsv_time):
+    return srt_time_to_seconds(tsv_time.replace(".", ","))
+
 def get_time_parts(time):
     millisecs = str(time).split(".")[1]
     if len(millisecs) != 3:
@@ -675,10 +678,17 @@ class VideoWorker(QtCore.QThread):
             ss = chunk[1]
             to = chunk[2]
 
+            t = tsv_time_to_seconds(to) - tsv_time_to_seconds(ss)
+
+            af_d = 0.25
+            af_st = 0
+            af_to = t - af_d
+            af_params = "afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (af_st, af_d, af_to, af_d)
+
             print ss
             self.updateTitle.emit(ss)
 
-            cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-strict", "-2", "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264", "-s", self.video_resolution, "-c:a", "libmp3lame", "-ac", "2", "-copyts", '"' + filename + ".mp4" + '"'])
+            cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-strict", "-2", "-loglevel", "quiet", "-t", str(t), "-af", af_params, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264", "-s", self.video_resolution, "-c:a", "libmp3lame", "-ac", "2", '"' + filename + ".mp4" + '"'])
             print cmd.encode('utf-8')
             self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), shell=True, **subprocess_args())
             self.model.p.wait()
@@ -686,7 +696,7 @@ class VideoWorker(QtCore.QThread):
             if self.canceled:
                 break
 
-            cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-loglevel", "quiet", "-ss", ss, "-to", to, "-map", "0:a:" + str(self.model.audio_id), "-copyts", '"' + filename + ".mp3" + '"'])
+            cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-loglevel", "quiet", "-t", str(t), "-af", af_params, "-map", "0:a:" + str(self.model.audio_id), '"' + filename + ".mp3" + '"'])
             print cmd.encode('utf-8')
             self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), shell=True, **subprocess_args())
             self.model.p.wait()
