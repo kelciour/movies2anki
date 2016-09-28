@@ -102,18 +102,18 @@ This card template I use on my phone. To use on desktop it may be helpful to ins
     python movies2anki.py
     ```
 
-#### Troubleshooting
+## Troubleshooting
 
 Close movies2anki and look at "log.txt" in the movies2anki folder.
 
-#### Sync between mobile devices and your computer
+## Sync between mobile devices and your computer
 
 1. Use AnkiWeb to sync decks
 2. Don't use AnkiWeb to sync media
   - Disable option "Fetch media on sync" both on mobile and computer version of Anki
   - Manually sync media via SSH (I use WinSCP for Windows 7 and SSHDroid for Android)
 
-#### Additional Options
+## Additional Options
 
 File config.ini contains:
 * is_write_output_subtitles - write subtitles with phrases next to the video (default - False)
@@ -121,3 +121,10 @@ File config.ini contains:
 * is_add_dir_to_media_path - add "deck_name.media/" to media path in Audio and Video fields (default - False)
   - If this option is True then you will need to copy "deck_name.media" folder itself into collection.media
   - But "Check Media..." option in Anki won't working with this cards
+
+## Related Projects
+
+Projects similar to [subs2srs](http://subs2srs.sourceforge.net/):
+
+* [SubtitleMemorize](https://github.com/ChangSpivey/SubtitleMemorize)
+* [substudy](https://github.com/emk/substudy)
