@@ -10,14 +10,14 @@ Inspired by [subs2srs](http://subs2srs.sourceforge.net/).
 
 * Second subtitle is optional
 * Movie mode:
-  * Change end times of phrases to the next phrase's start time
+  * Change end time of phrases to the next phrase's start time
   * Add empty phrase if the first subtitle starts after 15 seconds
 
 ## Anki Card Example (Front & Back)
 
 <img src="https://dl.dropboxusercontent.com/u/58886000/GitHub/front-back-hints.png" width="775" height="396">
 
-This card template I use on my phone. To use on desktop it may be helpful to install addon ["Replay buttons on card"](https://ankiweb.net/shared/info/498789867).
+This card template I use on my phone. To use on desktop it may be helpful to install addon ["Replay buttons on card"](https://ankiweb.net/shared/info/498789867) or ["svg_play_button.py"](https://gist.github.com/kelciour/ce22e4d5908090f51dce537ccce35a5c).
 
 ## Usage
 
@@ -46,6 +46,15 @@ This card template I use on my phone. To use on desktop it may be helpful to ins
   #### Video
 
   https://www.youtube.com/watch?v=Uu9oT5z08Is
+
+### Batch Processing
+
+1. Video name contains ```*``` or ```?``` symbols.
+  
+   ```*``` = Match zero or more characters  
+   ```?``` = Match exactly zero or one character
+
+2. Deck's name contains a pattern ```{##/start_number}```, for example "Avatar. The Last Airbender s01e{##/1}".
 
 ## Download
 
@@ -108,10 +117,10 @@ Close movies2anki and look at "log.txt" in the movies2anki folder.
 
 ## Sync between mobile devices and your computer
 
-1. Use AnkiWeb to sync decks
+1. Use AnkiWeb to sync decks (text information)
 2. Don't use AnkiWeb to sync media
   - Disable option "Fetch media on sync" both on mobile and computer version of Anki
-  - Manually sync media via SSH (I use WinSCP for Windows 7 and SSHDroid for Android)
+  - Manually sync media via USB or SSH (I use WinSCP for Windows 7 and SSHDroid for Android)
 
 ## Additional Options
 
