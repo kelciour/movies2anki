@@ -318,17 +318,20 @@ def change_subtitles_ending_time(subs):
     (start_time, end_time, subtitle) = subs[-1]
     subs[-1] = (start_time, end_time + 600, subtitle)
 
+def find_glob_files(glob_pattern):
+    # replace the left square bracket with [[]
+    glob_pattern = re.sub(r'\[', '[[]', glob_pattern)
+    # replace the right square bracket with []] but be careful not to replace
+    # the right square brackets in the left square bracket's 'escape' sequence.
+    glob_pattern = re.sub(r'(?<!\[)\]', '[]]', glob_pattern)
+
+    return glob.glob(glob_pattern)
+
 def guess_srt_file(video_file, mask_list, default_filename):
     for mask in mask_list:
         glob_pattern = video_file[:-4] + mask
 
-        # replace the left square bracket with [[]
-        glob_pattern = re.sub(r'\[', '[[]', glob_pattern)
-        # replace the right square bracket with []] but be careful not to replace
-        # the right square brackets in the left square bracket's 'escape' sequence.
-        glob_pattern = re.sub(r'(?<!\[)\]', '[]]', glob_pattern)
-
-        glob_result = glob.glob(glob_pattern)
+        glob_result = find_glob_files(glob_pattern)
         if len(glob_result) >= 1:
             print ("Found subtitle: " + glob_result[0]).encode('utf-8')
             return glob_result[0]
@@ -346,6 +349,33 @@ def format_filename(deck_name):
     """
     s = deck_name.strip().replace(' ', '_')
     return re.sub(r'(?u)[^-\w.]', '', s)
+
+def getNameForCollectionDirectory(basedir, deck_name):
+    prefix = format_filename(deck_name)
+    directory = os.path.join(basedir, prefix + ".media")
+    return directory
+
+def create_collection_dir(directory):
+    try:
+        os.makedirs(directory)
+    except OSError as ex:
+        return False
+    return True
+
+def create_or_clean_collection_dir(directory):
+    try:
+        if os.path.exists(directory):
+            print "Remove dir " + directory.encode('utf-8')
+            shutil.rmtree(directory)
+            time.sleep(0.5)
+    
+        print "Create dir " + directory.encode('utf-8')
+        os.makedirs(directory)
+    except OSError as ex:
+        print ex
+        return False
+
+    return True
 
 class Model(object):
     def __init__(self):
@@ -615,7 +645,7 @@ class Model(object):
     def create_tsv_file(self):
         # Формируем tsv файл для импорта в Anki
         print "Writing tsv file..."
-        self.ffmpeg_split_timestamps = self.write_tsv_file(self.deck_name, self.en_subs_phrases, self.ru_subs_phrases, self.output_directory)
+        self.ffmpeg_split_timestamps.append(self.write_tsv_file(self.deck_name, self.en_subs_phrases, self.ru_subs_phrases, self.output_directory))
 
     def getTimeDelta(self):
         return self.time_delta
@@ -647,8 +677,11 @@ class Model(object):
 class VideoWorker(QtCore.QThread):
 
     updateProgress = QtCore.pyqtSignal(int)
-    updateTitle = QtCore.pyqtSignal(str)
+    updateProgressWindowTitle = QtCore.pyqtSignal(str)
+    updateProgressText = QtCore.pyqtSignal(str)
     jobFinished = QtCore.pyqtSignal(float)
+    batchJobsFinished = QtCore.pyqtSignal()
+    errorRaised = QtCore.pyqtSignal(str)
 
     def __init__(self, data):
         QtCore.QThread.__init__(self)
@@ -660,46 +693,74 @@ class VideoWorker(QtCore.QThread):
       self.canceled = True
 
     def run(self):
-        prefix = format_filename(self.model.deck_name)
         self.video_resolution = str(self.model.video_width) + "x" + str(self.model.video_height)
 
         time_start = time.time()
 
-        num_files = len(self.model.ffmpeg_split_timestamps)
-        for i in range(num_files):
+        num_files_completed = 0       
+        num_files = sum(len(files) for files in self.model.ffmpeg_split_timestamps)
+        for idx in range(len(self.model.ffmpeg_split_timestamps)):
             if self.canceled:
                 break
 
-            chunk = self.model.ffmpeg_split_timestamps[i]
-            
-            self.updateProgress.emit((i * 1.0 / num_files) * 100)
-                        
-            filename = self.model.output_directory + os.sep + prefix + ".media" + os.sep + chunk[0]
-            ss = chunk[1]
-            to = chunk[2]
+            if self.model.batch_mode:
+                ffmpeg_split_timestamps = self.model.ffmpeg_split_timestamps[idx]
+                
+                video_file, en_srt, ru_srt, deck_name = self.model.jobs[idx]
 
-            t = tsv_time_to_seconds(to) - tsv_time_to_seconds(ss)
+                self.model.video_file = video_file
+                self.model.en_srt = en_srt
+                self.model.ru_srt = ru_srt
+                self.model.deck_name = deck_name
 
-            af_d = 0.25
-            af_st = 0
-            af_to = t - af_d
-            af_params = "afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (af_st, af_d, af_to, af_d)
+                collection_dir = getNameForCollectionDirectory(self.model.output_directory, self.model.deck_name)
+                ret = create_collection_dir(collection_dir)
+                if ret == False:
+                    self.errorRaised.emit("Can't create media directory.")
+                    self.canceled = True
+                    break
 
-            print ss
-            self.updateTitle.emit(ss)
+                self.updateProgressWindowTitle.emit("Generate Video & Audio Clips [%s/%s]" % (idx + 1, len(self.model.jobs)))
+            else:
+                ffmpeg_split_timestamps = self.model.ffmpeg_split_timestamps[idx]
 
-            cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-strict", "-2", "-loglevel", "quiet", "-t", str(t), "-af", af_params, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264", "-s", self.video_resolution, "-c:a", "libmp3lame", "-ac", "2", '"' + filename + ".mp4" + '"'])
-            print cmd.encode('utf-8')
-            self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), shell=True, **subprocess_args())
-            self.model.p.wait()
+            prefix = format_filename(self.model.deck_name)
+            for i in range(len(ffmpeg_split_timestamps)):
+                if self.canceled:
+                    break
 
-            if self.canceled:
-                break
+                chunk = ffmpeg_split_timestamps[i]
+                
+                self.updateProgress.emit((num_files_completed * 1.0 / num_files) * 100)
+                            
+                filename = self.model.output_directory + os.sep + prefix + ".media" + os.sep + chunk[0]
+                ss = chunk[1]
+                to = chunk[2]
 
-            cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-loglevel", "quiet", "-t", str(t), "-af", af_params, "-map", "0:a:" + str(self.model.audio_id), '"' + filename + ".mp3" + '"'])
-            print cmd.encode('utf-8')
-            self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), shell=True, **subprocess_args())
-            self.model.p.wait()
+                t = tsv_time_to_seconds(to) - tsv_time_to_seconds(ss)
+
+                af_d = 0.25
+                af_st = 0
+                af_to = t - af_d
+                af_params = "afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (af_st, af_d, af_to, af_d)
+
+                print ss
+                self.updateProgressText.emit(ss)
+
+                cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-strict", "-2", "-loglevel", "quiet", "-t", str(t), "-af", af_params, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264", "-s", self.video_resolution, "-c:a", "aac", "-ac", "2", '"' + filename + ".mp4" + '"'])
+                print cmd.encode('utf-8')
+                self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), shell=True, **subprocess_args())
+                self.model.p.wait()
+
+                if self.canceled:
+                    break
+
+                cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-loglevel", "quiet", "-t", str(t), "-af", af_params, "-map", "0:a:" + str(self.model.audio_id), '"' + filename + ".mp3" + '"'])
+                print cmd.encode('utf-8')
+                self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), shell=True, **subprocess_args())
+                self.model.p.wait()
+
+                num_files_completed += 1
 
         time_end = time.time()
         time_diff = (time_end - time_start)
@@ -708,9 +769,54 @@ class VideoWorker(QtCore.QThread):
             self.updateProgress.emit(100)
             self.jobFinished.emit(time_diff)
 
+        if self.canceled:
             print "Canceled"
+        else:
+            print "Done"
+        
+        if self.model.batch_mode:
+            self.batchJobsFinished.emit()
 
-        print "Done"
+class JobsInfo(QtGui.QDialog):
+    
+    def __init__(self, message, parent=None):
+        super(JobsInfo, self).__init__(parent)
+        
+        self.initUI(message)
+
+    def initUI(self, message):
+        
+        okButton = QtGui.QPushButton("OK")
+        cancelButton = QtGui.QPushButton("Cancel")
+        
+        okButton.clicked.connect(self.ok)
+        cancelButton.clicked.connect(self.cancel)
+
+        reviewEdit = QtGui.QTextEdit()
+        reviewEdit.setReadOnly(True)
+        reviewEdit.setText(message)
+
+        grid = QtGui.QGridLayout()
+        grid.setSpacing(10)
+
+        grid.addWidget(reviewEdit, 1, 1, 1, 3)
+        grid.addWidget(okButton, 2, 2)
+        grid.addWidget(cancelButton, 2, 3)
+
+        grid.setColumnStretch(1,1)
+        
+        self.setLayout(grid) 
+        
+        self.setWindowTitle('movies2anki [Batch Processing]')
+        self.setModal(True)
+
+        self.setMinimumSize(400, 300)
+
+    def ok(self):
+        self.done(1)
+
+    def cancel(self):
+        self.done(0)
 
 class Example(QtGui.QMainWindow):
     
@@ -816,26 +922,6 @@ class Example(QtGui.QMainWindow):
             
         return False
         
-    def getNameForCollectionDirectory(self, basedir, deck_name):
-        prefix = format_filename(deck_name)
-        directory = os.path.join(basedir, prefix + ".media")
-        return directory
-
-    def create_or_clean_collection_dir(self, directory):
-        try:
-            if os.path.exists(directory):
-                print "Remove dir " + directory.encode('utf-8')
-                shutil.rmtree(directory)
-                time.sleep(0.5)
-        
-            print "Create dir " + directory.encode('utf-8')
-            os.makedirs(directory)
-        except OSError as ex:
-            print ex
-            return False
-        
-        return True
-
     def tryToSetEngAudio(self):
         eng_id = len(self.audio_streams) - 1
         for cur_id in range(len(self.audio_streams)):
@@ -851,7 +937,16 @@ class Example(QtGui.QMainWindow):
     def getAudioStreams(self, video_file):
         self.audio_streams = []
         
-        if not os.path.isfile(video_file):
+        if "*" in video_file or "?" in video_file:
+            glob_results = find_glob_files(video_file)
+
+            if len(glob_results) == 0:
+                print "Video file not found"
+                return
+            else:
+                video_file = glob_results[0]  
+
+        elif not os.path.isfile(video_file):
             print "Video file not found"
             return
 
@@ -958,13 +1053,31 @@ class Example(QtGui.QMainWindow):
             self.showErrorDialog("Add english subtitles.")
             return False
 
-        if not os.path.isfile(self.model.en_srt):
-            self.showErrorDialog("English subtitles didn't exist.")
+        if "*" in self.model.en_srt or "?" in self.model.en_srt:
+            glob_results = find_glob_files(self.model.en_srt)
+
+            if len(glob_results) == 0:
+                print "English subtitles not found."
+                return
+            else:
+                self.model.en_srt = glob_results[0]  
+
+        elif not os.path.isfile(self.model.en_srt):
+            print "English subtitles didn't exist."
             return False
 
         if len(self.model.ru_srt) != 0:
-            if not os.path.isfile(self.model.ru_srt):
-                self.showErrorDialog("Russian subtitles didn't exist.")
+            if "*" in self.model.ru_srt or "?" in self.model.ru_srt:
+                glob_results = find_glob_files(self.model.ru_srt)
+
+                if len(glob_results) == 0:
+                    print "Russian subtitles not found."
+                    return
+                else:
+                    self.model.ru_srt = glob_results[0]  
+
+            elif not os.path.isfile(self.model.ru_srt):
+                print "Russian subtitles didn't exist."
                 return False
 
         return True
@@ -997,7 +1110,103 @@ Phrases: %s
 The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num_ru_subs, self.model.num_phrases, minutes, seconds)
         QtGui.QMessageBox.information(self, "Preview", message)
 
+        self.changeEngSubs()
+        self.changeRusSubs()
+
     def start(self):
+        self.model.jobs = []
+        self.model.ffmpeg_split_timestamps = []
+        if "*" not in self.model.video_file and "?" not in self.model.video_file:
+            self.startSingleMode()
+        else:
+            self.startBatchMode()
+
+    def create_tsv_files(self):
+        for video_file, en_srt, ru_srt, deck_name in self.model.jobs:
+            self.model.en_srt = en_srt
+            self.model.ru_srt = ru_srt
+            self.model.deck_name = deck_name
+
+            self.model.create_subtitles()
+            self.model.create_tsv_file()
+
+    def check_directories(self):
+        for video_file, en_srt, ru_srt, deck_name in self.model.jobs:
+            collection_dir = getNameForCollectionDirectory(self.model.output_directory, deck_name)
+
+            if os.path.exists(collection_dir):
+                if self.showDirAlreadyExistsDialog(collection_dir) == False:
+                    return False
+                else:
+                    try:
+                        print "Remove dir " + collection_dir.encode('utf-8')
+                        shutil.rmtree(collection_dir)
+                    except OSError as ex:
+                        print ex
+                        return False
+        return True
+        
+    def startBatchMode(self):
+        self.model.batch_mode = True
+
+        self.model.tmp_video_file = self.model.video_file
+        self.model.tmp_en_srt = self.model.en_srt
+        self.model.tmp_ru_srt = self.model.ru_srt
+        self.model.tmp_deck_name = self.model.deck_name
+
+        deck_name_pattern = self.model.deck_name
+        m = re.match(r'(.*){(#+)/(\d+)}(.*)', deck_name_pattern)
+        if not m:
+            self.showErrorDialog("[Batch Mode] Couldn't find {##/<number>} in deck's name.\nFor example: 'Deck s02e{##/1}'")
+            return
+        else:
+            deck_name_prefix = m.group(1)
+            deck_number_width = len(m.group(2))
+            deck_number_start = int(m.group(3))
+            deck_name_suffix = m.group(4)
+        
+        video_files = find_glob_files(self.model.video_file)
+        en_srt_files = find_glob_files(self.model.en_srt)
+        ru_srt_files = find_glob_files(self.model.ru_srt)
+
+        if len(en_srt_files) != len(video_files):
+            message = "The number of videos [%d] does not match the number of english subtitles [%d]." % (len(video_files), len(en_srt_files))
+            self.showErrorDialog(message)
+            return
+
+        if len(ru_srt_files) < len(video_files):
+            max_len = max(len(ru_srt_files), len(video_files))
+            ru_srt_files = ru_srt_files + [""] * (max_len - len(ru_srt_files))
+
+        for idx, video_file in enumerate(video_files):
+            en_srt = en_srt_files[idx]
+            ru_srt = ru_srt_files[idx]
+
+            deck_number = str(deck_number_start + idx)
+            deck_number = deck_number.zfill(deck_number_width)
+            deck_name = deck_name_prefix + deck_number +  deck_name_suffix
+
+            self.model.jobs.append((video_file, en_srt, ru_srt, deck_name))
+
+        if len(self.model.ru_srt) != 0:
+            message = "\n".join("%s\n%s\n%s\n%s\n" % 
+                (os.path.basename(t[0]), os.path.basename(t[1]), os.path.basename(t[2]), t[3]) for t in self.model.jobs)
+        else:
+            message = "\n".join("%s\n%s\n%s\n" % 
+                (os.path.basename(t[0]), os.path.basename(t[1]), t[3]) for t in self.model.jobs)
+        ret = JobsInfo(message).exec_()
+        if ret == 1:
+            ret = self.check_directories()
+            if ret == True:
+                self.updateDeckComboBox()
+
+                self.create_tsv_files()
+
+                self.convert_video()
+
+    def startSingleMode(self):
+        self.model.batch_mode = False
+
         if not self.validateSubtitles():
             return
 
@@ -1040,11 +1249,11 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
             return
 
         # create or remove & create colletion.media directory
-        collection_dir = self.getNameForCollectionDirectory(self.model.output_directory, self.model.deck_name)
+        collection_dir = getNameForCollectionDirectory(self.model.output_directory, self.model.deck_name)
         if os.path.exists(collection_dir) and self.showDirAlreadyExistsDialog(collection_dir) == False:
             return
 
-        ret = self.create_or_clean_collection_dir(collection_dir)
+        ret = create_or_clean_collection_dir(collection_dir)
         if ret == False:
             self.showErrorDialog("Can't create or clean media directory. Try again in a few seconds.")
             return
@@ -1055,8 +1264,17 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
     def setProgress(self, progress):
         self.progressDialog.setValue(progress)
 
-    def setTitle(self, title):
-        self.progressDialog.setLabelText(title)
+    def setProgressWindowTitle(self, title):
+        self.progressDialog.setWindowTitle(title)
+
+    def setProgressText(self, text):
+        self.progressDialog.setLabelText(text)
+
+    def revertModelChanges(self):
+        self.model.video_file = self.model.tmp_video_file
+        self.model.en_srt = self.model.tmp_en_srt
+        self.model.ru_srt = self.model.tmp_ru_srt
+        self.model.deck_name = self.model.tmp_deck_name
 
     def finishProgressDialog(self, time_diff):
         self.progressDialog.done(0)
@@ -1083,6 +1301,9 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         if self.model.p != None:
             self.model.p.terminate()
 
+    def displayErrorMessage(self, message):
+        self.showErrorDialog(message)
+
     def convert_video(self):
         self.progressDialog = QtGui.QProgressDialog(self)
 
@@ -1096,8 +1317,11 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
         self.worker = VideoWorker(self.model)
         self.worker.updateProgress.connect(self.setProgress)
-        self.worker.updateTitle.connect(self.setTitle)
+        self.worker.updateProgressWindowTitle.connect(self.setProgressWindowTitle)
+        self.worker.updateProgressText.connect(self.setProgressText)
         self.worker.jobFinished.connect(self.finishProgressDialog)
+        self.worker.batchJobsFinished.connect(self.revertModelChanges)
+        self.worker.errorRaised.connect(self.displayErrorMessage)
 
         self.progressDialog.canceled.connect(self.cancelProgressDialog)
         self.progressDialog.setFixedSize(300, self.progressDialog.height())
@@ -1328,7 +1552,6 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         return hbox
 
 def main():
-    
     app = QtGui.QApplication(sys.argv)
     ex = Example()
     sys.exit(app.exec_())
