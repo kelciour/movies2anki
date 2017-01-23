@@ -413,8 +413,8 @@ class Model(object):
         self.video_width = 480
         self.video_height = 320
 
-        self.shift_start = 0.5
-        self.shift_end = 0.5
+        self.shift_start = 0.75
+        self.shift_end = 0.75
 
         self.mode = "Movie"
 
