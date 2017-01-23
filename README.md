@@ -1,6 +1,6 @@
 #  movies2anki
 
-Convert movies with subtitles to watch them with [Anki](http://ankisrs.net). The movie will be splitted into separate scenes/phrases. I found it useful for improving my listening skills.
+Convert movies with subtitles to watch them with [Anki](http://ankisrs.net). The movie will be splitted into separated scenes/phrases. I found it useful for improving my listening skills.
 
 Inspired by [subs2srs](http://subs2srs.sourceforge.net/).
 
@@ -130,6 +130,11 @@ File config.ini contains:
 * is_add_dir_to_media_path - add "deck_name.media/" to media path in Audio and Video fields (default - False)
   - If this option is True then you will need to copy "deck_name.media" folder itself into collection.media
   - But "Check Media..." option in Anki won't working with this cards
+
+## Notes
+
+* Audio on the back side will be played automatically with 250 ms delay ([reddit post](https://www.reddit.com/r/Anki/comments/5dygor/delayed_automatic_playback_of_audio/)). If you don't need it you need to edit Back Template and delete ```[sound:_silence-0.25s.mp3]``` and ```<script>``` tag completely.  
+Silence audio was generated with ffmpeg command: ```ffmpeg -f lavfi -i anullsrc -c:a mp3 -t 0.25 _silence-0.25s.mp3```.
 
 ## Related Projects
 
