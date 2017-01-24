@@ -211,29 +211,48 @@ def split_long_phrases(en_subs, phrases_duration_limit):
 
     return subs
 
+def remove_tags(sub):
+    sub = re.sub(r"<[^>]+>", "", sub)
+    sub = re.sub(r"  +", " ", sub)
+    sub = sub.strip()
+
+    return sub
+
 def convert_into_sentences(en_subs, phrases_duration_limit):
     subs = []
 
     for sub in en_subs:
         sub_start = sub[0]
         sub_end = sub[1]
-        sub_content = sub[2]
+        sub_content_original = sub[2]
+
+        sub_content = remove_tags(sub_content_original)
 
         if len(subs) > 0: 
             prev_sub_start = subs[-1][0]
             prev_sub_end = subs[-1][1]
-            prev_sub_content = subs[-1][2]
+            prev_sub_content_original = subs[-1][2]
 
-            if ((sub_start - prev_sub_end) < 1.5 and (sub_end - prev_sub_start) < phrases_duration_limit and 
-                prev_sub_content[-1] != '.' and 
+            prev_sub_content = remove_tags(prev_sub_content_original)
+
+            if ((sub_start - prev_sub_end) <= 2 and (sub_end - prev_sub_start) < phrases_duration_limit and 
+                sub_content[0] != '-' and
+                sub_content[0] != '"' and
+                sub_content[0] != u'♪' and
+                (prev_sub_content[-1] != '.' or (sub_content[0:3] == '...' or (prev_sub_content[-3:] == '...' and sub_content[0].islower()))) and 
                 prev_sub_content[-1] != '?' and
-                prev_sub_content[-1] != '!'):
+                prev_sub_content[-1] != '!' and
+                prev_sub_content[-1] != ']' and
+                prev_sub_content[-1] != ')' and
+                prev_sub_content[-1] != u'♪' and
+                prev_sub_content[-1] != '"' and
+                (sub_content[0].islower() or sub_content[0].isdigit())):
 
-                subs[-1] = (prev_sub_start, sub_end, prev_sub_content + " " + sub_content)
+                subs[-1] = (prev_sub_start, sub_end, prev_sub_content_original + " " + sub_content_original)
             else:
-                subs.append((sub_start, sub_end, sub_content))
+                subs.append((sub_start, sub_end, sub_content_original))
         else:
-            subs.append((sub_start, sub_end, sub_content))
+            subs.append((sub_start, sub_end, sub_content_original))
 
     return subs
 
