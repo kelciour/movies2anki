@@ -136,7 +136,10 @@ def read_subtitles(content, is_ignore_SDH):
             
             sub_start = srt_time_to_seconds(sub_timecode[0].strip())
             sub_end = srt_time_to_seconds(sub_timecode[1].strip())
-            sub_content = " ".join(sub_chunks[2:]).replace("\t", " ").strip()
+            sub_content = " ".join(sub_chunks[2:]).replace("\t", " ")
+            sub_content = re.sub(r"\n +", "\n", sub_content)
+            sub_content = re.sub(r"  +", " ", sub_content)
+            sub_content = sub_content.strip()
 
             if len(sub_content) > 0:
                 if not is_ignore_SDH:
