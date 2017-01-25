@@ -273,8 +273,11 @@ def convert_into_phrases(en_subs, time_delta, phrases_duration_limit, is_split_l
 
     if is_split_long_phrases:
         subs = split_long_phrases(subs, phrases_duration_limit)
+        
+    subs_with_line_timings = subs
+
     subs = join_lines_within_subs(subs)
-    return subs
+    return (subs, subs_with_line_timings)
 
 def sync_subtitles(en_subs, ru_subs):
     subs = []
@@ -322,6 +325,11 @@ def add_pad_timings_between_phrases(subs, shift_start, shift_end):
     (start_time, end_time, subtitle) = subs[0]
     if start_time < 0:
         subs[0] = (0.0, end_time, subtitle)
+
+def add_empty_subtitle(subs):
+    (start_time, end_time, subtitle) = subs[0][0]
+    if start_time > 15:
+        subs.insert(0, [(0.0, start_time, "")])
 
 def change_subtitles_ending_time(subs):
     for idx in range(1, len(subs)):
@@ -433,7 +441,7 @@ class Model(object):
         self.phrases_duration_limit = 60
 
         self.video_width = 480
-        self.video_height = 320
+        self.video_height = -1
 
         self.shift_start = 0.75
         self.shift_end = 0.75
@@ -443,6 +451,10 @@ class Model(object):
         self.recent_deck_names = deque(maxlen = 5)
 
         self.is_write_output_subtitles = False
+        self.is_write_output_subtitles_for_clips = False
+        self.is_create_clips_with_softsub = False
+        self.is_create_clips_with_hardsub = False
+        self.hardsub_style = "FontName=Arial,FontSize=24,OutlineColour=&H5A000000,BorderStyle=3"
         self.is_ignore_sdh_subtitle = True
         self.is_add_dir_to_media_path = False
 
@@ -466,6 +478,10 @@ class Model(object):
         self.phrases_duration_limit = config.getint('main', 'phrases_duration_limit')
         self.mode = config.get('main', 'mode')
         self.is_write_output_subtitles = config.getboolean('main', 'is_write_output_subtitles')
+        self.is_write_output_subtitles_for_clips = config.getboolean('main', 'is_write_output_subtitles_for_clips')
+        self.is_create_clips_with_softsub = config.getboolean('main', 'is_create_clips_with_softsub')
+        self.is_create_clips_with_hardsub = config.getboolean('main', 'is_create_clips_with_hardsub')
+        self.hardsub_style = config.get('main', 'hardsub_style')
         self.is_ignore_sdh_subtitle = config.getboolean('main', 'is_ignore_sdh_subtitle')
         self.is_add_dir_to_media_path = config.getboolean('main', 'is_add_dir_to_media_path')
         
@@ -487,6 +503,10 @@ class Model(object):
         config.set('main', 'phrases_duration_limit', str(self.phrases_duration_limit))
         config.set('main', 'mode', self.mode)
         config.set('main', 'is_write_output_subtitles', str(self.is_write_output_subtitles))
+        config.set('main', 'is_write_output_subtitles_for_clips', str(self.is_write_output_subtitles_for_clips))
+        config.set('main', 'is_create_clips_with_softsub', str(self.is_create_clips_with_softsub))
+        config.set('main', 'is_create_clips_with_hardsub', str(self.is_create_clips_with_hardsub))
+        config.set('main', 'hardsub_style', self.hardsub_style.encode('utf-8'))
         config.set('main', 'is_ignore_sdh_subtitle', str(self.is_ignore_sdh_subtitle))
         config.set('main', 'is_add_dir_to_media_path', str(self.is_add_dir_to_media_path))
         
@@ -563,9 +583,13 @@ class Model(object):
             tag = prefix
             sequence = str(idx + 1).zfill(3) + "_" + start_time
 
-            sound = prefix + "_" + start_time + "-" + end_time + ".mp3"
-            video = prefix + "_" + start_time + "-" + end_time + ".mp4"
+            filename_suffix = ""
+            if self.is_create_clips_with_hardsub:
+                filename_suffix = ".sub"
 
+            sound = prefix + "_" + start_time + "-" + end_time + ".mp3"
+            video = prefix + "_" + start_time + "-" + end_time + filename_suffix + ".mp4"
+               
             if self.is_add_dir_to_media_path:
                 sound = prefix + ".media/" + sound
                 video = prefix + ".media/" + video
@@ -593,6 +617,10 @@ class Model(object):
         print "English subtitles output: %s" % self.out_en_srt.encode('utf-8')
         print "Russian subtitles output: %s" % self.out_ru_srt.encode('utf-8')
         print "Write output subtitles: %s" % self.is_write_output_subtitles
+        print "Write output subtitles for clips: %s" % self.is_write_output_subtitles_for_clips
+        print "Create clips with softsub: %s" % self.is_create_clips_with_softsub
+        print "Create clips with hardsub: %s" % self.is_create_clips_with_hardsub
+        print "Style for hardcoded subtitles: %s" % self.hardsub_style
         print "Ignore SDH subtitles: %s" % self.is_ignore_sdh_subtitle
         print "Output Directory: %s" % self.output_directory.encode('utf-8')
         print "Video width: %s" % self.video_width
@@ -619,7 +647,7 @@ class Model(object):
         print "English sentences: %s" % len(self.en_subs_sentences)
 
         # Разбиваем субтитры на фразы
-        self.en_subs_phrases = convert_into_phrases(self.en_subs_sentences, self.time_delta, self.phrases_duration_limit, self.is_split_long_phrases)
+        self.en_subs_phrases, self.subs_with_line_timings = convert_into_phrases(self.en_subs_sentences, self.time_delta, self.phrases_duration_limit, self.is_split_long_phrases)
         print "English phrases: %s" % len(self.en_subs_phrases)
 
         # Загружаем русские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
@@ -648,6 +676,7 @@ class Model(object):
             # Меняем длительность фраз в английских субтитрах
             print "Changing duration English subtitles..."
             change_subtitles_ending_time(self.en_subs_phrases)
+            add_empty_subtitle(self.subs_with_line_timings)
 
             # Меняем длительность фраз в русских субтитрах
             print "Changing duration Russian subtitles..."
@@ -715,7 +744,7 @@ class VideoWorker(QtCore.QThread):
       self.canceled = True
 
     def run(self):
-        self.video_resolution = str(self.model.video_width) + "x" + str(self.model.video_height)
+        self.video_resolution = str(self.model.video_width) + ":" + str(self.model.video_height)
 
         time_start = time.time()
 
@@ -769,10 +798,46 @@ class VideoWorker(QtCore.QThread):
                 print ss
                 self.updateProgressText.emit(ss)
 
-                cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', "-strict", "-2", "-loglevel", "quiet", "-t", str(t), "-af", af_params, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), "-c:v", "libx264", "-s", self.video_resolution, "-c:a", "aac", "-ac", "2", '"' + filename + ".mp4" + '"'])
+                # clip subtitles
+                if self.model.is_write_output_subtitles_for_clips or self.model.is_create_clips_with_softsub or self.model.is_create_clips_with_hardsub:
+                    with open(filename + ".srt", 'w') as f_sub:
+                        clip_subs = self.model.subs_with_line_timings[i]
+                        clip_sub_shift = tsv_time_to_seconds(ss)
+
+                        for sub_id in range(len(clip_subs)):
+                            f_sub.write(self.model.encode_str(str(sub_id+1) + "\n"))
+                            f_sub.write(self.model.encode_str(seconds_to_srt_time(clip_subs[sub_id][0] - clip_sub_shift) + " --> " + seconds_to_srt_time(clip_subs[sub_id][1] - clip_sub_shift) + "\n"))
+                            f_sub.write(self.model.encode_str(clip_subs[sub_id][2] + "\n"))
+                            f_sub.write(self.model.encode_str("\n"))
+                
+                vf = '"'
+                vf += "scale=" + self.video_resolution
+                if self.model.is_create_clips_with_hardsub:
+                    srt_style = self.model.hardsub_style
+                    srt_filename = os.path.abspath(filename + ".srt")
+                    if srt_filename[1] == ":": # Windows
+                        srt_filename = srt_filename.replace("\\", "/")
+                        srt_filename = srt_filename.replace(":", "\\\\:")
+                    vf += ",subtitles=" + srt_filename + ":force_style='" + srt_style + "'"
+                vf += '"'
+
+                softsubs_options = ""
+                softsubs_map = ""
+                if self.model.is_create_clips_with_softsub:
+                    softsubs_options = "-i" + " " + '"' + filename + ".srt" + '"' + " " + "-c:s mov_text"
+                    softsubs_map = "-map 1:0"
+
+                filename_suffix = ""
+                if self.model.is_create_clips_with_hardsub:
+                    filename_suffix = ".sub"
+
+                cmd = " ".join(["ffmpeg", "-ss", ss, "-i", '"' + self.model.video_file + '"', softsubs_options, "-strict", "-2", "-loglevel", "quiet", "-t", str(t), "-af", af_params, "-map", "0:v:0", "-map", "0:a:" + str(self.model.audio_id), softsubs_map, "-c:v", "libx264", "-vf", vf, "-c:a", "aac", "-ac", "2", '"' + filename + filename_suffix + ".mp4" + '"'])
                 print cmd.encode('utf-8')
                 self.model.p = Popen(cmd.encode(sys.getfilesystemencoding()), shell=True, **subprocess_args())
                 self.model.p.wait()
+
+                if (self.model.is_create_clips_with_hardsub or self.model.is_create_clips_with_softsub) and not self.model.is_write_output_subtitles_for_clips:
+                    os.remove(filename + ".srt")
 
                 if self.canceled:
                     break
@@ -1414,7 +1479,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         layout = QtGui.QFormLayout()
 
         self.widthSpinBox = QtGui.QSpinBox()
-        self.widthSpinBox.setRange(16, 2048)
+        self.widthSpinBox.setRange(-1, 2048)
         self.widthSpinBox.setSingleStep(2)
         self.widthSpinBox.setValue(self.model.getVideoWidth())
 
@@ -1425,7 +1490,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         layout.addRow(QtGui.QLabel("Width:"), hbox)
 
         self.heightSpinBox = QtGui.QSpinBox()
-        self.heightSpinBox.setRange(16, 2048)
+        self.heightSpinBox.setRange(-1, 2048)
         self.heightSpinBox.setSingleStep(2)
         self.heightSpinBox.setValue(self.model.getVideoHeight())
 
@@ -1554,6 +1619,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
                 QtGui.QSizePolicy.Preferred)
         self.deckComboBox.addItems(self.model.recent_deck_names)
         self.deckComboBox.clearEditText()
+        self.deckComboBox.setInsertPolicy(QtGui.QComboBox.NoInsert)
                 
         hbox = QtGui.QHBoxLayout()
         hbox.addWidget(self.deckComboBox)
