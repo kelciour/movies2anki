@@ -12,12 +12,14 @@ Inspired by [subs2srs](http://subs2srs.sourceforge.net/).
 * Movie mode:
   * Change end time of phrases to the next phrase's start time
   * Add empty phrase if the first subtitle starts after 15 seconds
+* Video Dimensions:  
+  * If one of the values is -1 then a value that maintains the aspect ratio of the input image, calculated from the other specified dimension, will be used. If both of them are -1, the input size is used.
 
 ## Anki Card Example (Front & Back)
 
 <img src="https://dl.dropboxusercontent.com/u/58886000/GitHub/front-back-hints.png" width="775" height="396">
 
-This card template I use on my phone. To use on desktop it may be helpful to install addon ["Replay buttons on card"](https://ankiweb.net/shared/info/498789867) or ["svg_play_button.py"](https://gist.github.com/kelciour/ce22e4d5908090f51dce537ccce35a5c).
+This card template I use on my phone. To use it on desktop it may be helpful to install addon ["Replay buttons on card"](https://ankiweb.net/shared/info/498789867) or better use [updated version](https://gist.github.com/kelciour/ce22e4d5908090f51dce537ccce35a5c). Because in the original add-on after clicking on the audio button media file will be added in queue and may not be played immediately.
 
 ## Usage
 
@@ -113,7 +115,7 @@ This card template I use on my phone. To use on desktop it may be helpful to ins
 
 ## Troubleshooting
 
-Close movies2anki and look at "log.txt" in the movies2anki folder.
+Close movies2anki and look at "log.txt" in the movies2anki folder. (Note: "log.txt" contains information only from previous movies2anki run)
 
 ## Sync between mobile devices and your computer
 
@@ -125,15 +127,23 @@ Close movies2anki and look at "log.txt" in the movies2anki folder.
 ## Additional Options
 
 File config.ini contains:
-* is_write_output_subtitles - write subtitles with phrases next to the video (default - False)
-* is_ignore_sdh_subtitle - ignore SDH subtitles (default - True)
-* is_add_dir_to_media_path - add "deck_name.media/" to media path in Audio and Video fields (default - False)
+* is_write_output_subtitles - write subtitles with phrases that have been used to split video into clips next to the input video file. (default - False)
+* is_ignore_sdh_subtitle - ignore SDH subtitles. All lines that has been ignored will be in 'log.txt'. (default - True)
+* is_add_dir_to_media_path - add "deck_name.media/" to media path in Audio and Video fields. (default - False)
   - If this option is True then you will need to copy "deck_name.media" folder itself into collection.media
-  - But "Check Media..." option in Anki won't working with this cards
+  - But "Check Media..." option in Anki won't working with this cards 
+* is_write_output_subtitles_for_clips - write English subtitles next to the generated clips. (default - False)
+* is_create_clips_with_softsub - embed English subtitles (softsubs) into the generated clips. (default - False)
+  - On Windows you need to copy "Arial" font from "C:\Windows\Fonts" in "C:\Program Files\Anki\mplayer". Delete all "*.ttf" files except "arial.ttf" (if there is more than one). Rename "arial.ttf" in "subfont.ttf".
+  - If subtitles looks blurry edit mplayer 'config' file inside that folder and replace line "vo=direct3d" with "vo=gl". (Note: you need to open notepad.exe with admin rigths (see [usage video](https://youtu.be/Uu9oT5z08Is?t=87)) or copy "config" file into your desktop, edit it and copy it back)
+* is_create_clips_with_hardsub - burn English subtitles (hardsubs) into the generated clips. (default - False)
+* hardsub_style - override default style of the hardsubs subtitles. It accepts a string containing ASS style format KEY=VALUE couples separated by ",". For more information see Section 5 in the ["ass-specs"](http://moodub.free.fr/video/ass-specs.doc) file. (default - FontName=Arial,FontSize=24,OutlineColour=&H5A000000,BorderStyle=3).
+
+If there is no "config.ini" file then just open and close movies2anki. File "config.ini" will appear with default settings.
 
 ## Notes
 
-* Audio on the back side will be played automatically with 250 ms delay ([reddit post](https://www.reddit.com/r/Anki/comments/5dygor/delayed_automatic_playback_of_audio/)). If you don't need it you need to edit Back Template and delete ```[sound:_silence-0.25s.mp3]``` and ```<script>``` tag completely.  
+* Audio on the back side will be played automatically with 250 ms delay ([reddit post](https://www.reddit.com/r/Anki/comments/5dygor/delayed_automatic_playback_of_audio/)). It is useful on AnkiDroid. If you don't need it you need to edit Back Template and delete ```[sound:_silence-0.25s.mp3]``` and ```<script>``` tag completely.  
 Silence audio was generated with ffmpeg command: ```ffmpeg -f lavfi -i anullsrc -c:a mp3 -t 0.25 _silence-0.25s.mp3```.
 
 ## Related Projects
