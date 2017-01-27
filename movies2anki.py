@@ -441,7 +441,7 @@ class Model(object):
         self.phrases_duration_limit = 60
 
         self.video_width = 480
-        self.video_height = -1
+        self.video_height = -2
 
         self.shift_start = 0.75
         self.shift_end = 0.75
@@ -1479,7 +1479,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         layout = QtGui.QFormLayout()
 
         self.widthSpinBox = QtGui.QSpinBox()
-        self.widthSpinBox.setRange(-1, 2048)
+        self.widthSpinBox.setRange(-2, 2048)
         self.widthSpinBox.setSingleStep(2)
         self.widthSpinBox.setValue(self.model.getVideoWidth())
 
@@ -1490,7 +1490,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         layout.addRow(QtGui.QLabel("Width:"), hbox)
 
         self.heightSpinBox = QtGui.QSpinBox()
-        self.heightSpinBox.setRange(-1, 2048)
+        self.heightSpinBox.setRange(-2, 2048)
         self.heightSpinBox.setSingleStep(2)
         self.heightSpinBox.setValue(self.model.getVideoHeight())
 
