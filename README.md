@@ -13,7 +13,7 @@ Inspired by [subs2srs](http://subs2srs.sourceforge.net/).
   * Change end time of phrases to the next phrase's start time
   * Add empty phrase if the first subtitle starts after 15 seconds
 * Video Dimensions:  
-  * If one of the values is -1 then a value that maintains the aspect ratio of the input image, calculated from the other specified dimension, will be used. If both of them are -1, the input size is used.
+  * If one of the values is -2 then a value that maintains the aspect ratio of the input image, calculated from the other specified dimension, will be used. If both of them are -2 (or -1), the input size is used.
 
 ## Anki Card Example (Front & Back)
 
