@@ -6,7 +6,7 @@ Inspired by [subs2srs](http://subs2srs.sourceforge.net/).
 
 ## Interface
 
-<img src="https://dl.dropboxusercontent.com/u/58886000/GitHub/movies2anki.png" width="775" height="499">
+<img src="http://i.imgur.com/Fv2FoLd.png" width="775" height="499">
 
 * Second subtitle is optional
 * Movie mode:
@@ -17,7 +17,7 @@ Inspired by [subs2srs](http://subs2srs.sourceforge.net/).
 
 ## Anki Card Example (Front & Back)
 
-<img src="https://dl.dropboxusercontent.com/u/58886000/GitHub/front-back-hints.png" width="775" height="396">
+<img src="http://i.imgur.com/iJibGML.png" width="775" height="396">
 
 This card template I use on my phone. To use it on desktop it may be helpful to install addon ["Replay buttons on card"](https://ankiweb.net/shared/info/498789867) or better use [updated version](https://gist.github.com/kelciour/ce22e4d5908090f51dce537ccce35a5c). Because in the original add-on after clicking on the audio button media file will be added in queue and may not be played immediately.
 
