@@ -138,6 +138,7 @@ File config.ini contains:
   - If subtitles looks blurry edit mplayer 'config' file inside that folder and replace line "vo=direct3d" with "vo=gl". (Note: you need to open notepad.exe with admin rigths (see [usage video](https://youtu.be/Uu9oT5z08Is?t=87)) or copy "config" file into your desktop, edit it and copy it back)
 * is_create_clips_with_hardsub - burn English subtitles (hardsubs) into the generated clips. (default - False)
 * hardsub_style - override default style of the hardsubs subtitles. It accepts a string containing ASS style format KEY=VALUE couples separated by ",". For more information see Section 5 in the ["ass-specs"](http://moodub.free.fr/video/ass-specs.doc) file. (default - FontName=Arial,FontSize=24,OutlineColour=&H5A000000,BorderStyle=3).
+* is_separate_fragments_without_subtitles - split apart fragments between phrases in Movie mode instead of changing ending time of phrases. (default - False)
 
 If there is no "config.ini" file then just open and close movies2anki. File "config.ini" will appear with default settings.
 
