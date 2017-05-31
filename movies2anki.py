@@ -351,7 +351,12 @@ def change_subtitles_ending_time(subs, subs_with_line_timings, is_separate_fragm
         subs[0] = (0.0, end_time, subtitle)
 
     (start_time, end_time, subtitle) = subs[-1]
-    subs[-1] = (start_time, end_time + 600, subtitle)
+    if is_separate_fragments_without_subtitles:
+        subs.append((end_time, end_time + 600, ""))
+        if subs_with_line_timings is not None:
+            subs_with_line_timings.append([(end_time, end_time + 600, "")])
+    else:
+        subs[-1] = (start_time, end_time + 600, subtitle)
 
 def find_glob_files(glob_pattern):
     # replace the left square bracket with [[]
