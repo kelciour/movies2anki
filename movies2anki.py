@@ -326,22 +326,27 @@ def add_pad_timings_between_phrases(subs, shift_start, shift_end):
     if start_time < 0:
         subs[0] = (0.0, end_time, subtitle)
 
-def add_empty_subtitle(subs):
-    (start_time, end_time, subtitle) = subs[0][0]
-    if start_time > 15:
-        subs.insert(0, [(0.0, start_time, "")])
-
-def change_subtitles_ending_time(subs):
-    for idx in range(1, len(subs)):
-        (start_time, end_time, subtitle) = subs[idx]
-        (prev_start_time, prev_end_time, prev_subtitle) = subs[idx - 1]
+def change_subtitles_ending_time(subs, subs_with_line_timings, is_separate_fragments_without_subtitles, time_delta):
+    shift = 0
+    subs_in = list(subs)
+    for idx in range(1, len(subs_in)):
+        (start_time, end_time, subtitle) = subs_in[idx]
+        (prev_start_time, prev_end_time, prev_subtitle) = subs_in[idx - 1]
 
         if prev_end_time < start_time:
-            subs[idx - 1] = (prev_start_time, start_time, prev_subtitle)
+            if is_separate_fragments_without_subtitles and (start_time - prev_end_time) > time_delta * 2:
+                subs.insert(idx + shift, (prev_end_time, start_time, ""))
+                if subs_with_line_timings is not None:
+                    subs_with_line_timings.insert(idx + shift, [(prev_end_time, start_time, "")])
+                shift = shift + 1
+            else:
+                subs[idx + shift - 1] = (prev_start_time, start_time, prev_subtitle)
 
     (start_time, end_time, subtitle) = subs[0]
     if start_time > 15:
         subs.insert(0, (0.0, start_time, ""))
+        if subs_with_line_timings is not None:
+            subs_with_line_timings.insert(0, [(0.0, start_time, "")])
     else:
         subs[0] = (0.0, end_time, subtitle)
 
@@ -457,6 +462,7 @@ class Model(object):
         self.hardsub_style = "FontName=Arial,FontSize=24,OutlineColour=&H5A000000,BorderStyle=3"
         self.is_ignore_sdh_subtitle = True
         self.is_add_dir_to_media_path = False
+        self.is_separate_fragments_without_subtitles = False
 
     def load_settings(self):
         self.default_settings()
@@ -484,6 +490,7 @@ class Model(object):
         self.hardsub_style = config.get('main', 'hardsub_style')
         self.is_ignore_sdh_subtitle = config.getboolean('main', 'is_ignore_sdh_subtitle')
         self.is_add_dir_to_media_path = config.getboolean('main', 'is_add_dir_to_media_path')
+        self.is_separate_fragments_without_subtitles = config.getboolean('main', 'is_separate_fragments_without_subtitles')
         
         value = [e.strip() for e in config.get('main', 'recent_deck_names').decode('utf-8').split(',')]
         if len(value) != 0:
@@ -509,6 +516,7 @@ class Model(object):
         config.set('main', 'hardsub_style', self.hardsub_style.encode('utf-8'))
         config.set('main', 'is_ignore_sdh_subtitle', str(self.is_ignore_sdh_subtitle))
         config.set('main', 'is_add_dir_to_media_path', str(self.is_add_dir_to_media_path))
+        config.set('main', 'is_separate_fragments_without_subtitles', str(self.is_separate_fragments_without_subtitles))
         
         config.set('main', 'recent_deck_names', ",".join(reversed(self.recent_deck_names)).encode('utf-8'))
   
@@ -621,6 +629,7 @@ class Model(object):
         print "Create clips with softsub: %s" % self.is_create_clips_with_softsub
         print "Create clips with hardsub: %s" % self.is_create_clips_with_hardsub
         print "Style for hardcoded subtitles: %s" % self.hardsub_style
+        print "Separate fragments without subtitles in Movie mode: %s" % self.is_separate_fragments_without_subtitles
         print "Ignore SDH subtitles: %s" % self.is_ignore_sdh_subtitle
         print "Output Directory: %s" % self.output_directory.encode('utf-8')
         print "Video width: %s" % self.video_width
@@ -675,12 +684,11 @@ class Model(object):
         if self.mode == "Movie":
             # Меняем длительность фраз в английских субтитрах
             print "Changing duration English subtitles..."
-            change_subtitles_ending_time(self.en_subs_phrases)
-            add_empty_subtitle(self.subs_with_line_timings)
+            change_subtitles_ending_time(self.en_subs_phrases, self.subs_with_line_timings, self.is_separate_fragments_without_subtitles, self.time_delta)
 
             # Меняем длительность фраз в русских субтитрах
             print "Changing duration Russian subtitles..."
-            change_subtitles_ending_time(self.ru_subs_phrases)
+            change_subtitles_ending_time(self.ru_subs_phrases, None, self.is_separate_fragments_without_subtitles, self.time_delta)
 
         self.is_subtitles_created = True
 
