@@ -4,6 +4,10 @@ Convert movies with subtitles to watch them with [Anki](http://ankisrs.net). The
 
 Inspired by [subs2srs](http://subs2srs.sourceforge.net/).
 
+## Anki Add-on
+
+https://ankiweb.net/shared/info/939347702
+
 ## Interface
 
 <img src="http://i.imgur.com/Fv2FoLd.png" width="775" height="499">
