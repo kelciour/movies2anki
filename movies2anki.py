@@ -1916,11 +1916,12 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
     def createBottomGroup(self):
         modelGroupBox = QGroupBox("Model:")
 
-        self.modelComboBox = QLineEdit(self.model.model_name)
-        self.modelComboBox.setAlignment(Qt.AlignCenter)
-        self.modelComboBox.setReadOnly(True)
+        # self.modelComboBox = QLineEdit(self.model.model_name)
+        # self.modelComboBox.setAlignment(Qt.AlignCenter)
+        # self.modelComboBox.setReadOnly(True)
         
         self.modelComboBox = QComboBox()
+        self.modelComboBox.setSizeAdjustPolicy(QComboBox.AdjustToContents);
         self.modelComboBox.addItems(self.model.default_model_names)
         self.modelComboBox.currentIndexChanged.connect(self.setModelName)
 
@@ -1934,6 +1935,9 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         # self.modelComboBox.setMaximumWidth(140)
         
         modelGroupBox.setMinimumWidth(160)
+
+        modelComboBoxWidth = self.modelComboBox.minimumSizeHint().width()
+        self.modelComboBox.view().setMinimumWidth(modelComboBoxWidth)
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.modelComboBox)
