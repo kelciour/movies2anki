@@ -229,7 +229,7 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         p.kill()
 
     with noBundledLibs():
-        p = subprocess.Popen(cmd, startupinfo=info)
+        p = subprocess.Popen(cmd)
 
 def queueExternalAV(self, path):
     if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.model()["name"] == "movies2anki (add-on)" or mw.reviewer.card.model()["name"].startswith("movies2anki - subs2srs")):
