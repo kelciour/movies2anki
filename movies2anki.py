@@ -107,7 +107,7 @@ def subprocess_args(include_stdout=True):
     return ret
 
 def srt_time_to_seconds(time):
-    split_time = time.split(',')
+    split_time = re.split(r'[,\.]', time)
     major, minor = (split_time[0].split(':'), split_time[1])
     return int(major[0]) * 3600 + int(major[1]) * 60 + int(major[2]) + float(minor) / 1000
 
@@ -162,15 +162,15 @@ def is_not_sdh_subtitle(sub):
 def read_subtitles(content, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases):
     en_subs = []
     
-    content = re.sub(r'(^\d+\n\d+:\d+:\d+,\d+\s+-->\s+\d+:\d+:\d+,\d+)', r'#~~~~~~~~~~~~~~#\1', content, flags=re.M)
-    for sub in content.strip().split('#~~~~~~~~~~~~~~#'):
+    content = re.sub(r'(?s)^WEBVTT.*?\n\n', '', content).strip()
+    content = re.sub(r'(^(?:\d+\n)?\d+:\d+:\d+[,\.]\d+\s+-->\s+\d+:\d+:\d+[,\.]\d+)', r'#~~~~~~~~~~~~~~#\1', content, flags=re.M)
+    for sub_id, sub in enumerate(content.strip().split('#~~~~~~~~~~~~~~#'), 1):
         if not sub.strip():
             continue
         sub = re.sub(r'\n\s*\n', '\n', sub).strip()
         sub_chunks = sub.split('\n')
-        if len(sub_chunks) < 2:
-            # print("Incorrect subtitle: %s" % repr(sub))
-            continue
+        if ' --> ' in sub_chunks[0]:
+            sub_chunks.insert(0, sub_id)
         sub_timecode =  sub_chunks[1].split(' --> ')
         sub_start = srt_time_to_seconds(sub_timecode[0].strip())
         sub_end = srt_time_to_seconds(sub_timecode[1].strip())
@@ -1242,14 +1242,14 @@ class MainDialog(QDialog):
             self.directory = os.path.dirname(fname)
 
     def showSubsEngFileDialog(self):
-        fname, _ = QFileDialog.getOpenFileName(directory = self.directory, filter = "Subtitle Files (*.srt)")
+        fname, _ = QFileDialog.getOpenFileName(directory = self.directory, filter = "Subtitle Files (*.srt *.vtt)")
         self.subsEngEdit.setText(fname)
 
         if os.path.exists(fname):
             self.directory = os.path.dirname(fname)
 
     def showSubsRusFileDialog(self):
-        fname, _ = QFileDialog.getOpenFileName(directory = self.directory, filter = "Subtitle Files (*.srt)")
+        fname, _ = QFileDialog.getOpenFileName(directory = self.directory, filter = "Subtitle Files (*.srt *.vtt)")
         self.subsRusEdit.setText(fname)
 
         if os.path.exists(fname):
