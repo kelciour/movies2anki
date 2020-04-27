@@ -30,14 +30,24 @@ from . import styles
 
 from . import configparser
 
+if isMac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
+    # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
+    os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
+
 ffprobe_executable = find_executable("ffprobe")
 ffmpeg_executable = find_executable("ffmpeg")
+mpv_executable = find_executable("mpv")
+
+if mpv_executable is None and isMac:
+    mpv_executable = "/Applications/mpv.app/Contents/MacOS/mpv"
+    if not os.path.exists(mpv_executable):
+        mpv_executable = None
 
 # maybe a fix for macOS
-if ffprobe_executable is None:
-    ffprobe_executable = '/usr/local/bin/ffprobe'
-if ffmpeg_executable is None:
-    ffmpeg_executable = '/usr/local/bin/ffmpeg'
+# if ffprobe_executable is None:
+#     ffprobe_executable = '/usr/local/bin/ffprobe'
+# if ffmpeg_executable is None:
+    # ffmpeg_executable = '/usr/local/bin/ffmpeg'
 
 # anki.utils.py
 if isWin:
@@ -909,9 +919,12 @@ class Model(object):
 
         if self.mode == "Movie":
             with noBundledLibs():
-                output = check_output([ffprobe_executable, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", self.video_file], startupinfo=si, encoding='utf-8')
+                if ffprobe_executable is not None:
+                    output = check_output([ffprobe_executable, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", self.video_file], startupinfo=si, encoding='utf-8')
+                else:
+                    output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${=duration}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--no-config", "--", self.video_file], startupinfo=si, encoding='utf-8')
 
-            self.duration = float(output)
+            self.duration = float(output.strip())
             
             # Меняем длительность фраз в английских субтитрах
             # print "Changing duration English subtitles..."

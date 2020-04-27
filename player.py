@@ -37,11 +37,17 @@ p = None
 
 from distutils.spawn import find_executable
 
-if isMac:
+if isMac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
 
 mpv_executable, env = find_executable("mpv"), os.environ
+
+if mpv_executable is None and isMac:
+    mpv_executable = "/Applications/mpv.app/Contents/MacOS/mpv"
+    if not os.path.exists(mpv_executable):
+        mpv_executable = None
+
 if mpv_executable is None:
     mpv_path, env = _packagedCmd(["mpv"])
     mpv_executable = mpv_path[0]
