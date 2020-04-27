@@ -169,7 +169,9 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         mw.reviewer.card.note().flush()
 
     if VLC_DIR:
-        default_args = ["-I", "dummy", "--dummy-quiet", "--play-and-exit", "--no-video-title", "--video-on-top", "--sub-track=8"]
+        default_args = ["-I", "dummy", "--play-and-exit", "--no-video-title", "--video-on-top", "--sub-track=8"]
+        if isWin:
+            default_args += ["--dummy-quiet"]
         default_args += ["--no-sub-autodetect-file"]
     else:
         default_args = ["--pause=no", "--script=%s" % os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.lua")]
@@ -317,16 +319,23 @@ def selectVideoPlayer():
         if p != None and p.poll() is None:
             p.kill()
     except OSError:
-        if VLC_DIR != "" and os.path.exists(VLC_DIR):
+        if VLC_DIR != "":
             return
         
-        VLC_DIR = r"C:\Program Files\VideoLAN\VLC\vlc.exe"
-        if os.path.exists(VLC_DIR):
-            return
+        if isWin:
+            VLC_DIR = r"C:\Program Files\VideoLAN\VLC\vlc.exe"
+            if os.path.exists(VLC_DIR):
+                return
 
-        VLC_DIR = r"C:\Program Files (x86)\VideoLAN\VLC\vlc.exe"
-        if os.path.exists(VLC_DIR):
-            return
+            VLC_DIR = r"C:\Program Files (x86)\VideoLAN\VLC\vlc.exe"
+            if os.path.exists(VLC_DIR):
+                return
+        elif isMac:
+            VLC_DIR = r"/Applications/VLC.app/Contents/MacOS/VLC"
+            if os.path.exists(VLC_DIR):
+                return
+
+        VLC_DIR = ""
 
         return showWarning(r"""<p>Neither mpv nor VLC were found.</p>
             <p>Please install <a href='https://mpv.io'>mpv</a>.</p>
