@@ -48,9 +48,11 @@ if mpv_executable is None and isMac:
     if not os.path.exists(mpv_executable):
         mpv_executable = None
 
+with_bundled_libs = False
 if mpv_executable is None:
     mpv_path, env = _packagedCmd(["mpv"])
     mpv_executable = mpv_path[0]
+    with_bundled_libs = True
 
 ffmpeg_executable = find_executable("ffmpeg")
 ffprobe_executable = find_executable("ffprobe")
@@ -235,6 +237,10 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
 
     if p != None and p.poll() is None:
         p.kill()
+
+    if with_bundled_libs:
+        p = subprocess.Popen(cmd)
+        return
 
     with noBundledLibs():
         p = subprocess.Popen(cmd)
