@@ -449,6 +449,8 @@ def joinCard(isPrev=False, isNext=False):
                 c["Audio Sound"] = ""
             elif name == "Video Sound":
                 c["Video Sound"] = ""
+            elif name == "Snapshot":
+                pass
             else:
                 if isPrev:
                     c[name] = prev_card[name] + "<br>" + c[name]
@@ -469,8 +471,8 @@ def joinCard(isPrev=False, isNext=False):
         mw.reset()
 
         tooltip(ngettext(
-            "Note joined and its %d card deleted.",
-            "Note joined and its %d cards deleted.",
+            "Notes joined and %d card deleted.",
+            "Notes joined and %d cards deleted.",
             cnt) % cnt)
 
 class MediaWorker(QThread):
