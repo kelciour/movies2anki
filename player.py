@@ -605,7 +605,7 @@ def setProgressText(text):
     mw.progressDialog.setLabelText(text)
 
 def saveNote(nid, fld, val):
-    note = mw.col.getNote(nid)
+    note = mw.col.getNote(int(nid))
     note[fld] = "[sound:%s]" % val
     note.flush()
 
@@ -642,7 +642,7 @@ def update_media():
             continue
 
         mid = m['id']
-        query = "mid:'%s'" % (mid)
+        query = "mid:%s" % (mid)
         res = mw.col.findNotes(query)
 
         if len(res) == 0:
