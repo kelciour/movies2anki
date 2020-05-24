@@ -195,6 +195,7 @@ def read_subtitles(content, is_ignore_SDH, join_lines_separator, join_sentences_
                     sub_content += join_sentences_separator
                 sub_content += sub_line
 
+            sub_content = re.sub(r"{\\\w+\d*}", "", sub_content)
             sub_content = re.sub(r"\t", " ", sub_content)
             sub_content = re.sub(r"\n +", "\n", sub_content)
             sub_content = re.sub(r"  +", " ", sub_content)
