@@ -4,7 +4,7 @@ import subprocess, sys, json, time, re, os, atexit
 try:
     from aqt.sound import play, _packagedCmd, si
     import aqt.sound as sound # Anki 2.1.17+
-except ImportError as e:
+except ImportError:
     from anki.sound import play, _packagedCmd, si
     import anki.sound as sound
 
