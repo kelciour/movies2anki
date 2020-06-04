@@ -1,3 +1,4 @@
+import json
 import os
 import time
 import re
@@ -8,7 +9,7 @@ from distutils.spawn import find_executable
 from subprocess import check_output
 
 from aqt.qt import *
-from aqt.utils import showWarning, isMac, tooltip
+from aqt.utils import showWarning, isMac, tooltip, showText
 from anki.hooks import addHook
 from anki.utils import noBundledLibs, tmpdir, tmpfile
 
@@ -122,7 +123,12 @@ def updateNotes(browser, nids):
             notes_to_process[note["Path"]].append(os.path.abspath(os.path.join(tmpdir(), note["Audio"])))
 
     if len(notes_to_process) == 0:
-        tooltip("Nothing to export")
+        if errors:
+            showText("Nothing to export.\n\n" + \
+            "A few notes were skipped with the following errors: " + \
+                json.dumps(errors, sort_keys=True, indent=4))
+        else:
+            tooltip("Nothing to export")
         return
 
     global progressDialog
@@ -151,6 +157,9 @@ def updateNotes(browser, nids):
     def setProgressText(text):
         progressDialog.setLabelText(text)
 
+    def setProgressTitle(text):
+        progressDialog.setWindowTitle(text)
+
     def saveNote(nid, fld, val):
         note = mw.col.getNote(int(nid))
         note[fld] = "[sound:%s]" % val
@@ -161,12 +170,18 @@ def updateNotes(browser, nids):
         minutes = int(time_diff / 60)
         seconds = int(time_diff % 60)
         message = "Processing completed in %s minutes %s seconds." % (minutes, seconds)
-        QMessageBox.information(browser, "movies2anki", message)
+        if not errors:
+            QMessageBox.information(browser, "movies2anki", message)
+        else:
+            showText(message + '\n\n' + \
+                "A few notes were skipped with the following errors: " + \
+                json.dumps(errors, sort_keys=True, indent=4))
         browser.onReset()
 
     worker = AudioExporter(data, notes_to_process, output_directory, is_collection_media)
     worker.updateProgress.connect(setProgress)
     worker.updateProgressText.connect(setProgressText)
+    worker.updateProgressTitle.connect(setProgressTitle)
     worker.updateNote.connect(saveNote)
     worker.jobFinished.connect(finishProgressDialog)
     progressDialog.canceled.connect(cancelProgressDialog)
@@ -176,6 +191,7 @@ def updateNotes(browser, nids):
 class AudioExporter(QThread):
     updateProgress = pyqtSignal(int)
     updateProgressText = pyqtSignal(str)
+    updateProgressTitle = pyqtSignal(str)
     updateNote = pyqtSignal(str, str, str)
     jobFinished = pyqtSignal(float)
 
@@ -243,6 +259,7 @@ class AudioExporter(QThread):
             if self.is_collection_media:
                 self.updateNote.emit(str(note.id), "Audio Sound", note["Audio"])
 
+        self.updateProgressTitle.emit("Exporting Condensed Audio Files")
         for idx, path in enumerate(self.notes_to_process):
             self.updateProgress.emit((idx * 1.0 / len(self.notes_to_process)) * 100)
 
