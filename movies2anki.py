@@ -175,9 +175,9 @@ def read_subtitles(content, is_ignore_SDH, join_lines_separator, join_sentences_
     content = re.sub(r'(?s)^WEBVTT.*?\n\n', '', content).strip()
     content = re.sub(r'(^(?:\d+\n)?\d+:\d+:\d+[,\.]\d+\s+-->\s+\d+:\d+:\d+[,\.]\d+)', r'#~~~~~~~~~~~~~~#\1', content, flags=re.M)
     for sub_id, sub in enumerate(content.strip().split('#~~~~~~~~~~~~~~#'), 1):
-        if not sub.strip():
-            continue
         sub = re.sub(r'\n\s*\n', '\n', sub).strip()
+        if not sub:
+            continue
         sub_chunks = sub.split('\n')
         if ' --> ' in sub_chunks[0]:
             sub_chunks.insert(0, sub_id)
@@ -542,7 +542,7 @@ class Model(object):
         self.out_en_srt = "out.en.srt"
         self.out_ru_srt = "out.ru.srt"
 
-        self.encodings = ["utf-8", "utf-16", "cp1251"]
+        self.encodings = ["utf-8", "cp1251", "utf-16"]
         self.sub_encoding = None
         
         self.p = None
