@@ -114,13 +114,13 @@ def updateNotes(browser, nids):
             errors["Can't find the source file specified in the Path field"] += 1
             continue
 
-        if "Audio Sound" in fields and (note["Audio Sound"] == "" or not os.path.exists(note["Audio"])):
-            data.append(note)
-
-        if os.path.exists(note["Audio"]) or is_collection_media:
+        if is_collection_media:
             notes_to_process[note["Path"]].append(os.path.abspath(note["Audio"]))
+            if not os.path.exists(note["Audio"]):
+                data.append(note)
         else:
             notes_to_process[note["Path"]].append(os.path.abspath(os.path.join(tmpdir(), note["Audio"])))
+            data.append(note)
 
     if len(notes_to_process) == 0:
         if errors:
@@ -230,7 +230,7 @@ class AudioExporter(QThread):
             se = secondsToTime(timeToSeconds(time_end), sep=":")
             t = timeToSeconds(time_end) - timeToSeconds(time_start)
 
-            af_d = 0.1
+            af_d = 0.25
             af_st = 0
             af_to = t - af_d
             af_params = "afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(af_st, af_d, af_to, af_d)
