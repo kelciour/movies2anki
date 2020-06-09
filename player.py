@@ -10,7 +10,7 @@ except ImportError:
 
 from anki.lang import _, ngettext
 from anki.hooks import addHook, wrap
-from anki.utils import noBundledLibs
+from anki.utils import noBundledLibs, stripHTML
 from aqt.reviewer import Reviewer
 from aqt import mw, browser
 from aqt.utils import showWarning, showInfo, tooltip, isWin, isMac
@@ -89,6 +89,9 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
             path = fields["Audio"]
         else:
             path = fields["Video"]
+
+    path = stripHTML(path)
+
     # elif path.endswith(".mp3"): # workaround to fix replay button (R) without refreshing webview.
     #     path = fields["Audio"]
     # else:
