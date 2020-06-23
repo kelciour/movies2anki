@@ -30,6 +30,8 @@ from . import styles
 
 from . import configparser
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
+
 if isMac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
@@ -652,7 +654,25 @@ class Model(object):
         with open(self.config_file_name, 'w', encoding='utf-8') as f:
             config.write(f)
 
+    def guess_encoding(self, file_content):
+        if file_content[:3] == b'\xef\xbb\xbf': # with bom
+            file_content = file_content[3:]
+            return file_content, 'utf-8'
+        try:
+            # https://github.com/chardet/chardet/pull/109
+            import chardet_with_utf16_fix
+            enc = chardet_with_utf16_fix.detect(file_content)['encoding']
+            return file_content, enc
+        except:
+            pass
+        return file_content, None
+
     def convert_to_unicode(self, file_content):
+        file_content, enc = self.guess_encoding(file_content)
+        if enc:
+            if enc in self.encodings:
+                self.encodings.remove(enc)
+            self.encodings.insert(0, enc)
         for enc in self.encodings:
             try:
                 content = file_content.decode(enc)
@@ -668,8 +688,6 @@ class Model(object):
             return []
 
         file_content = open(filename, 'rb').read()
-        if file_content[:3]==b'\xef\xbb\xbf': # with bom
-            file_content = file_content[3:]
 
         ## Конвертируем субтитры в Unicode
         file_content = self.convert_to_unicode(file_content)
