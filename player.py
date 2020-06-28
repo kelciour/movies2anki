@@ -736,3 +736,18 @@ Reviewer._linkHandler = wrap(Reviewer._linkHandler, myLinkHandler, "around")
 update_media_action = QAction("Generate Mobile Cards...", mw)
 update_media_action.triggered.connect(update_media)
 mw.form.menuTools.addAction(update_media_action)
+
+
+def on_card_answer(reviewer, card, ease):
+    note = mw.col.getNote(card.nid)
+    if not note.model()["name"].startswith("movies2anki"):
+        return
+    if note["Id"] != note["Audio"][:-4]:
+        note["Id"] = note["Audio"][:-4]
+        note.flush()
+
+try:
+    from aqt import gui_hooks
+    gui_hooks.reviewer_did_answer_card.append(on_card_answer)
+except:
+    pass
