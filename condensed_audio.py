@@ -268,7 +268,7 @@ class AudioExporter(QThread):
 
             self.updateProgressText.emit(output_file)
             
-            with open(list_to_concatenate, "w") as f:
+            with open(list_to_concatenate, "w", encoding="utf-8") as f:
                 for audio_file in self.notes_to_process[path]:
                     audio_file = audio_file.replace("'", r"'\''")
                     f.write("file '{}'\n".format(audio_file))
