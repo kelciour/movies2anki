@@ -103,7 +103,7 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
     m = re.fullmatch(r"(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*", path)
 
     if not m:
-        return
+        return False
 
     card_prefix, time_start, time_end = m.groups()
     time_start = timeToSeconds(time_start)
@@ -261,12 +261,11 @@ def queueExternal(path):
         # if mw.reviewer.state == "answer" and path.endswith(".mp4"):
         #     return
 
-        if av_player is not None:
-            path = path.filename
-
         try:
             clearExternalQueue()
-            playVideoClip(path)
+            ret = playVideoClip(path.filename if av_player else path)
+            if ret == False:
+                _player(path)
         except OSError:
             return showWarning(r"""<p>Please install <a href='https://mpv.io'>mpv</a>.</p>
                 On Windows download mpv and either update PATH environment variable or put mpv.exe in Anki installation folder (C:\Program Files\Anki).""", parent=mw)
