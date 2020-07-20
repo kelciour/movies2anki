@@ -526,7 +526,9 @@ class MediaWorker(QThread):
                 with noBundledLibs():
                     audio_id = 0
                     track_list_count = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], shell=False, stdin=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info, encoding='utf-8')
-                    for i in range(int(track_list_count)):
+                    track_list_count = track_list_count.replace('term-msg:', '').replace('[term-msg]', '')
+                    track_list_count = int(track_list_count)
+                    for i in range(track_list_count):
                         track_type = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/type}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], shell=False, stdin=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info, encoding='utf-8')
                         if track_type.strip() == 'audio':
                             track_selected = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/selected}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], shell=False, stdin=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info, encoding='utf-8')
