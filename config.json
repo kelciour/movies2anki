@@ -1,4 +1,5 @@
 {
 	"condensed_audio_collection.media": false,
-	"condensed_audio_output_directory": ""
+	"condensed_audio_output_directory": "",
+	"audio fade in/out": 0.25
 }

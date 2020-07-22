@@ -209,17 +209,22 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         else:
             args += ["--start={}".format(time_end - ADJUST_AUDIO_REPLAY_TIME), "--end={}".format(time_end)]
 
+    config = mw.addonManager.getConfig(__name__)
+    af_d = float(config["audio fade in/out"])
+
     if (path.endswith(".mp3") and not isPrev and not isNext) or state != None:
         if VLC_DIR:
             pass
         else:
-            args += ["--af=afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (time_start, 0.25, time_end - 0.25, 0.25)]
+            if af_d:
+                args += ["--af=afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (time_start, af_d, time_end - af_d, af_d)]
     else:
         if VLC_DIR:
             pass
         else:
             if not (state == None and isEnd == False):
-                args += ["--af=afade=t=out:st=%s:d=%s" % (time_end - 0.25, 0.25)]
+                if af_d:
+                    args += ["--af=afade=t=out:st=%s:d=%s" % (time_end - af_d, af_d)]
 
     fullpath = fields["Path"]
     if path is not None and os.path.exists(path) and isEnd == True and not any([state, isPrev, isNext]):
@@ -502,6 +507,7 @@ class MediaWorker(QThread):
         mp3gain_executable = find_executable("mp3gain")
 
         map_ids = {}
+        config = mw.addonManager.getConfig(__name__)
         for idx, note in enumerate(self.data):
             if self.canceled:
                 break
@@ -516,10 +522,13 @@ class MediaWorker(QThread):
             se = secondsToTime(timeToSeconds(time_end), sep=":")
             t = timeToSeconds(time_end) - timeToSeconds(time_start)
 
-            af_d = 0.25
-            af_st = 0
-            af_to = t - af_d
-            default_af_params = "afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(af_st, af_d, af_to, af_d)
+            if config["audio fade in/out"]:
+                af_d = float(config["audio fade in/out"])
+                af_st = 0
+                af_to = t - af_d
+                default_af_params = "afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(af_st, af_d, af_to, af_d)
+            else:
+                default_af_params = ""
 
             # select the audio stream selected by mpv
             if note["Path"] not in map_ids:
@@ -572,11 +581,17 @@ class MediaWorker(QThread):
                         break
                 stats = json.loads('\n'.join(output_lines[loudnorm_start:loudnorm_end]))
                 nf_params = "loudnorm={}:measured_I={}:measured_LRA={}:measured_TP={}:measured_thresh={}:offset={}:linear=true".format(NORMALIZE_AUDIO_FILTER, stats["input_i"], stats["input_lra"], stats["input_tp"], stats["input_thresh"], stats["target_offset"])
-                af_params = "%s,%s" % (nf_params, af_params)
+                if af_params:
+                    af_params = "%s,%s" % (nf_params, af_params)
+                else:
+                    af_params = nf_params
 
             if note["Audio Sound"] == "" or not os.path.exists(note["Audio"]):
                 self.fp = None
-                cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t), "-af", af_params, "-map", "0:a:{}".format(audio_id), note["Audio"]]
+                cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
+                if af_params:
+                    cmd += ["-af", af_params]
+                cmd += ["-map", "0:a:{}".format(audio_id), note["Audio"]]
 
                 with noBundledLibs():
                     self.fp = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info)
@@ -595,7 +610,10 @@ class MediaWorker(QThread):
 
             if "Video Sound" in note and (note["Video Sound"] == "" or not os.path.exists(note["Video"])):
                 self.fp = None
-                cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-strict", "-2", "-loglevel", "quiet", "-t", "{:.3f}".format(t), "-af", af_params, "-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-c:v", "libx264", "-vf", vf, "-profile:v", "baseline", "-level", "3.0", "-c:a", "aac", "-ac", "2", note["Video"]]
+                cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-strict", "-2", "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
+                if af_params:
+                    cmd += ["-af", af_params]
+                cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-c:v", "libx264", "-vf", vf, "-profile:v", "baseline", "-level", "3.0", "-c:a", "aac", "-ac", "2", note["Video"]]
                 with noBundledLibs():
                     self.fp = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info)
                     self.fp.wait()

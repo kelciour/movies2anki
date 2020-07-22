@@ -178,7 +178,7 @@ def updateNotes(browser, nids):
                 json.dumps(errors, sort_keys=True, indent=4))
         browser.onReset()
 
-    worker = AudioExporter(data, notes_to_process, output_directory, is_collection_media)
+    worker = AudioExporter(data, notes_to_process, config)
     worker.updateProgress.connect(setProgress)
     worker.updateProgressText.connect(setProgressText)
     worker.updateProgressTitle.connect(setProgressTitle)
@@ -195,13 +195,14 @@ class AudioExporter(QThread):
     updateNote = pyqtSignal(str, str, str)
     jobFinished = pyqtSignal(float)
 
-    def __init__(self, data, notes_to_process, output_directory, is_collection_media):
+    def __init__(self, data, notes_to_process, config):
         QThread.__init__(self)
 
         self.data = data
         self.notes_to_process = notes_to_process
-        self.output_directory = output_directory
-        self.is_collection_media = is_collection_media
+        self.output_directory = config["condensed_audio_output_directory"]
+        self.is_collection_media = config["condensed_audio_collection.media"]
+        self.audio_fade = config["audio fade in/out"]
         self.canceled = False
         self.fp = None
 
@@ -230,10 +231,13 @@ class AudioExporter(QThread):
             se = secondsToTime(timeToSeconds(time_end), sep=":")
             t = timeToSeconds(time_end) - timeToSeconds(time_start)
 
-            af_d = 0.25
-            af_st = 0
-            af_to = t - af_d
-            af_params = "afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(af_st, af_d, af_to, af_d)
+            if self.audio_fade:
+                af_d = float(self.audio_fade)
+                af_st = 0
+                af_to = t - af_d
+                af_params = "afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(af_st, af_d, af_to, af_d)
+            else:
+                af_params = ""
 
             if note["Path"] in audio_map_ids:
                 audio_id = audio_map_ids[note["Path"]]
@@ -247,7 +251,8 @@ class AudioExporter(QThread):
 
             cmd = [ffmpeg_executable]
             cmd += ["-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
-            cmd += ["-af", af_params]
+            if af_params:
+                cmd += ["-af", af_params]
             cmd += ["-map", "0:a:{}".format(audio_id), audio_file]
             with noBundledLibs():
                 p = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
