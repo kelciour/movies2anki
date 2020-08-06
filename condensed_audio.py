@@ -73,6 +73,7 @@ def updateNotes(browser, nids):
     notes_to_process = defaultdict(list)
     errors = defaultdict(int)
     audio_map_ids = {}
+    mw.progress.start(parent=browser)
     for c, nid in enumerate(sorted(nids), 1):
         note = mw.col.getNote(nid)
         m = note.model()
@@ -97,6 +98,16 @@ def updateNotes(browser, nids):
                 audio_file = match.group(1)
             else:
                 note["Audio Sound"] = ""
+
+        ret = 1
+        if audio_file and is_collection_media and os.path.exists(note["Audio"]):
+            cmd = ["ffprobe", "-loglevel", "warning", audio_file]
+            with noBundledLibs():
+                p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
+                ret = p.wait()
+                if ret != 0:
+                    audio_file = None
+                    note["Audio Sound"] = ""
         
         if audio_file is None and "Audio" not in fields:
             errors["The Audio field doesn't exist"] += 1
@@ -115,12 +126,13 @@ def updateNotes(browser, nids):
             continue
 
         if is_collection_media:
-            notes_to_process[note["Path"]].append(os.path.abspath(note["Audio"]))
-            if not os.path.exists(note["Audio"]):
+            notes_to_process[note["Path"]].append((os.path.abspath(note["Audio"]), ret))
+            if not os.path.exists(note["Audio"]) or ret != 0:
                 data.append(note)
         else:
-            notes_to_process[note["Path"]].append(os.path.abspath(os.path.join(tmpdir(), note["Audio"])))
+            notes_to_process[note["Path"]].append((os.path.abspath(os.path.join(tmpdir(), note["Audio"])), ret))
             data.append(note)
+    mw.progress.finish()
 
     if len(notes_to_process) == 0:
         if errors:
@@ -170,15 +182,15 @@ def updateNotes(browser, nids):
         minutes = int(time_diff / 60)
         seconds = int(time_diff % 60)
         message = "Processing completed in %s minutes %s seconds." % (minutes, seconds)
-        if not errors:
+        if not worker.errors:
             QMessageBox.information(browser, "movies2anki", message)
         else:
             showText(message + '\n\n' + \
                 "A few notes were skipped with the following errors: " + \
-                json.dumps(errors, sort_keys=True, indent=4))
+                json.dumps(worker.errors, sort_keys=True, indent=4))
         browser.onReset()
 
-    worker = AudioExporter(data, notes_to_process, config)
+    worker = AudioExporter(data, notes_to_process, config, errors)
     worker.updateProgress.connect(setProgress)
     worker.updateProgressText.connect(setProgressText)
     worker.updateProgressTitle.connect(setProgressTitle)
@@ -195,7 +207,7 @@ class AudioExporter(QThread):
     updateNote = pyqtSignal(str, str, str)
     jobFinished = pyqtSignal(float)
 
-    def __init__(self, data, notes_to_process, config):
+    def __init__(self, data, notes_to_process, config, errors):
         QThread.__init__(self)
 
         self.data = data
@@ -204,6 +216,7 @@ class AudioExporter(QThread):
         self.is_collection_media = config["condensed_audio_collection.media"]
         self.audio_fade = config["audio fade in/out"]
         self.canceled = False
+        self.errors = errors
         self.fp = None
 
     def cancel(self):
@@ -274,7 +287,15 @@ class AudioExporter(QThread):
             self.updateProgressText.emit(output_file)
             
             with open(list_to_concatenate, "w", encoding="utf-8") as f:
-                for audio_file in self.notes_to_process[path]:
+                for audio_file, ret in self.notes_to_process[path]:
+                    if ret != 0:
+                        cmd = ["ffprobe", "-loglevel", "warning", audio_file]
+                        with noBundledLibs():
+                            p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
+                            if p.wait() != 0:
+                                self.errors["The audio file seems to be corrupted and was skipped"] += 1
+                                continue
+
                     audio_file = audio_file.replace("'", r"'\''")
                     f.write("file '{}'\n".format(audio_file))
 
