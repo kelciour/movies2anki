@@ -91,7 +91,7 @@ def updateNotes(browser, nids):
             mw.progress.finish()
 
         audio_file = None
-        if "Audio Sound" in fields and not note["Audio Sound"]:
+        if "Audio Sound" in fields and note["Audio Sound"]:
             match = re.fullmatch(r"\[sound:(.*?)\]", note["Audio Sound"])
             if match and os.path.exists(match.group(1)):
                 audio_file = match.group(1)
