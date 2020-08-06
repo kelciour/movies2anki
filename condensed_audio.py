@@ -255,7 +255,7 @@ class AudioExporter(QThread):
                 cmd += ["-af", af_params]
             cmd += ["-map", "0:a:{}".format(audio_id), audio_file]
             with noBundledLibs():
-                p = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
+                p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
                 p.wait()
 
             if self.canceled:
@@ -280,7 +280,7 @@ class AudioExporter(QThread):
 
             cmd = [ffmpeg_executable, "-y", "-f", "concat", "-safe", "0", "-i", list_to_concatenate, "-c", "copy", os.path.join(self.output_directory, output_file)]
             with noBundledLibs():
-                p = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
+                p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
                 p.wait()
 
         job_end = time.time()
