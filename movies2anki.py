@@ -1565,9 +1565,9 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         #     deck_number_start = int(m.group(3))
         #     deck_name_suffix = m.group(4)
         
-        video_files = find_glob_files(self.model.video_file)
-        en_srt_files = find_glob_files(self.model.en_srt)
-        ru_srt_files = find_glob_files(self.model.ru_srt)
+        video_files = sorted(find_glob_files(self.model.video_file))
+        en_srt_files = sorted(find_glob_files(self.model.en_srt))
+        ru_srt_files = sorted(find_glob_files(self.model.ru_srt))
 
         if len(en_srt_files) != len(video_files):
             message = "The number of videos [%d] does not match the number of Subs 1 subtitles [%d]." % (len(video_files), len(en_srt_files))
