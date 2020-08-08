@@ -217,7 +217,7 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
             pass
         else:
             if af_d:
-                args += ["--af=afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (time_start, af_d, time_end - af_d, af_d)]
+                args += ["--af=afade=t=out:st=%s:d=%s" % (time_end - af_d, af_d)]
     else:
         if VLC_DIR:
             pass
