@@ -1267,7 +1267,7 @@ class MainDialog(QDialog):
         return QDialog.done(self, r)
 
     def showVideoFileDialog(self):
-        fname, _ = QFileDialog.getOpenFileName(directory = self.directory, filter = "Video Files (*.avi *.mkv *.mp4 *.webm *.mp3);;All files (*.*)")
+        fname, _ = QFileDialog.getOpenFileName(directory = self.directory, filter = "Video Files (*.avi *.mkv *.mp4 *.mov *.webm *.mp3 *.m4a *.wav);;All files (*.*)")
         self.videoEdit.setText(fname)
 
         if os.path.exists(fname):
