@@ -32,6 +32,8 @@ from . import configparser
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
 
+import pysubs2
+
 if isMac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
@@ -170,6 +172,28 @@ def is_not_sdh_subtitle(sub):
         return False
 
     return True
+
+def format_subtitles(subs, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases):
+    subs2 = []
+    for sub_start, sub_end, sub_text in subs:
+        sub_chunks = sub_text.split('\\N')
+        sub_content = sub_chunks[0]
+        for sub_line in sub_chunks[1:]:
+            if sub_content[-1] not in [u".", u"?", u"!", u"？", u"！", u"♪", '"'] and not sub_line.startswith('- '):
+                sub_content += join_lines_separator
+            else:
+                sub_content += join_sentences_separator
+
+            sub_content += sub_line
+
+            sub_content = re.sub(r"{\\\w+\d*}", "", sub_content)
+            sub_content = re.sub(r"\t", " ", sub_content)
+            sub_content = re.sub(r"\n +", "\n", sub_content)
+            sub_content = re.sub(r"  +", " ", sub_content)
+            sub_content = sub_content.strip()
+
+        subs2.append((sub_start, sub_end, sub_content))
+    return subs2
 
 def read_subtitles(content, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases):
     en_subs = []
@@ -689,16 +713,28 @@ class Model(object):
 
         file_content = open(filename, 'rb').read()
 
-        ## Конвертируем субтитры в Unicode
-        file_content = self.convert_to_unicode(file_content)
+        file_content, enc = self.guess_encoding(file_content)
 
-        file_content = file_content.replace('\r\n', '\n')
+        subs = pysubs2.load(filename, encoding=enc)
+
+        subs2 = []
+        for line in subs:
+            subs2.append((line.start / 1000, line.end / 1000, line.text))
+
+        subs2 = format_subtitles(subs2, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases)
+
+        return subs2
+
+        ## Конвертируем субтитры в Unicode
+        # file_content = self.convert_to_unicode(file_content)
+
+        # file_content = file_content.replace('\r\n', '\n')
 
         ## Оставляем только одну пустую строку между субтитрами
-        file_content = fix_empty_lines(file_content)
+        # file_content = fix_empty_lines(file_content)
 
         ## Читаем субтитры
-        return read_subtitles(file_content, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases)
+        # return read_subtitles(file_content, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases)
 
     def encode_str(self, enc_str):
         if self.sub_encoding == None:
