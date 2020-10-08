@@ -1310,14 +1310,14 @@ class MainDialog(QDialog):
             self.directory = os.path.dirname(fname)
 
     def showSubsEngFileDialog(self):
-        fname, _ = QFileDialog.getOpenFileName(directory = self.directory, filter = "Subtitle Files (*.srt *.vtt)")
+        fname, _ = QFileDialog.getOpenFileName(directory = self.directory, filter = "Subtitle Files (*.srt *.vtt *.ass)")
         self.subsEngEdit.setText(fname)
 
         if os.path.exists(fname):
             self.directory = os.path.dirname(fname)
 
     def showSubsRusFileDialog(self):
-        fname, _ = QFileDialog.getOpenFileName(directory = self.directory, filter = "Subtitle Files (*.srt *.vtt)")
+        fname, _ = QFileDialog.getOpenFileName(directory = self.directory, filter = "Subtitle Files (*.srt *.vtt *.ass)")
         self.subsRusEdit.setText(fname)
 
         if os.path.exists(fname):
@@ -1408,7 +1408,7 @@ class MainDialog(QDialog):
     #     self.tryToSetEngAudio()
 
     def changeSubtitles(self):
-        self.model.en_srt = guess_srt_file(self.model.video_file, [".srt", "*eng*.srt", "*en*.srt", "*.srt"], "")
+        self.model.en_srt = guess_srt_file(self.model.video_file, [".srt", "*eng*.srt", "*en*.srt", "*.srt", ".ass", "*.ass", ".vtt", "*.vtt"], "")
         self.subsEngEdit.setText(self.model.en_srt)
 
         self.model.ru_srt = guess_srt_file(self.model.video_file, ["*rus*.srt", "*ru*.srt"], "")
