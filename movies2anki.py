@@ -315,6 +315,9 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
 
         sub_content = remove_tags(sub_content_original)
 
+        if not sub_content:
+            continue
+
         if len(subs) > 0: 
             prev_sub_start = subs[-1][0]
             prev_sub_end = subs[-1][1]
