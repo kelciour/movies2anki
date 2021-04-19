@@ -38,6 +38,10 @@ if isMac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
 
+if isMac and '/opt/homebrew/bin' not in os.environ['PATH'].split(':'):
+    # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
+    os.environ['PATH'] = "/opt/homebrew/bin:" + os.environ['PATH']
+
 ffprobe_executable = find_executable("ffprobe")
 ffmpeg_executable = find_executable("ffmpeg")
 mpv_executable = find_executable("mpv")

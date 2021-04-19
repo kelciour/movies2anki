@@ -41,6 +41,10 @@ if isMac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
 
+if isMac and '/opt/homebrew/bin' not in os.environ['PATH'].split(':'):
+    # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
+    os.environ['PATH'] = "/opt/homebrew/bin:" + os.environ['PATH']
+
 mpv_executable, env = find_executable("mpv"), os.environ
 
 if mpv_executable is None and isMac:
