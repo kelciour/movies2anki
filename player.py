@@ -15,7 +15,7 @@ from aqt.reviewer import Reviewer
 from aqt import mw, browser
 from aqt.utils import showWarning, showInfo, tooltip, isWin, isMac
 from aqt.qt import *
-from subprocess import check_output
+from subprocess import check_output, CalledProcessError
 
 # ------------- ADDITIONAL OPTIONS -------------
 NORMALIZE_AUDIO = False
@@ -621,6 +621,12 @@ class MediaWorker(QThread):
                 with noBundledLibs():
                     self.fp = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info)
                     self.fp.wait()
+                    retcode = self.fp.returncode
+                    if retcode != 0:
+                        cmd_debug = ' '.join(['"' + c + '"' for c in cmd])
+                        cmd_debug = cmd_debug.replace(' "-loglevel" "quiet" ', ' ')
+                        cmd_debug = [cmd_debug]
+                        raise CalledProcessError(retcode, cmd_debug)
 
                 if self.canceled:
                     break
