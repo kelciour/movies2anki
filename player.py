@@ -538,20 +538,20 @@ class MediaWorker(QThread):
             if note["Path"] not in map_ids:
                 with noBundledLibs():
                     audio_id = 0
-                    track_list_count = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], shell=False, stdin=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info, encoding='utf-8')
+                    track_list_count = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8')
                     track_list_count = track_list_count.replace('term-msg:', '').replace('[term-msg]', '')
                     track_list_count = int(track_list_count)
                     for i in range(track_list_count):
-                        track_type = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/type}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], shell=False, stdin=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info, encoding='utf-8')
+                        track_type = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/type}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8')
                         if track_type.strip() == 'audio':
-                            track_selected = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/selected}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], shell=False, stdin=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info, encoding='utf-8')
+                            track_selected = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/selected}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8')
                             if track_selected.strip() == 'yes':
-                                output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/ff-index}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], shell=False, stdin=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info, encoding='utf-8')
+                                output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/ff-index}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8')
                                 audio_id = int(output.strip()) - 1
                                 break
                     else:
                         # select the last audio stream
-                        output = check_output([ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", note["Path"]], shell=False, stdin=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info, encoding='utf-8')
+                        output = check_output([ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", note["Path"]], startupinfo=info, encoding='utf-8')
                         json_data = json.loads(output)
                         for index, stream in enumerate(json_data["streams"]):
                             audio_id = index
@@ -571,7 +571,7 @@ class MediaWorker(QThread):
             if NORMALIZE_AUDIO and not (NORMALIZE_AUDIO_WITH_MP3GAIN and mp3gain_executable):
                 cmd = [ffmpeg_executable, "-ss", ss, "-i", note["Path"], "-t", str(t), "-af", "loudnorm=%s:print_format=json" % NORMALIZE_AUDIO_FILTER, "-f", "null", "-"]
                 with noBundledLibs():
-                    output = check_output(cmd, shell=False, stdin=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info, encoding='utf-8')
+                    output = check_output(cmd, startupinfo=info, encoding='utf-8')
                 # https://github.com/slhck/ffmpeg-normalize/blob/5fe6b3df5f4b36b398fa08c11a9001b1e67cec10/ffmpeg_normalize/_streams.py#L171
                 output_lines = [line.strip() for line in output.split('\n')]
                 loudnorm_start = False
@@ -598,13 +598,13 @@ class MediaWorker(QThread):
                 cmd += ["-map", "0:a:{}".format(audio_id), note["Audio"]]
 
                 with noBundledLibs():
-                    self.fp = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info)
+                    self.fp = subprocess.Popen(cmd, startupinfo=info)
                     self.fp.wait()
 
                 if NORMALIZE_AUDIO and NORMALIZE_AUDIO_WITH_MP3GAIN and mp3gain_executable:
                     cmd = [mp3gain_executable, "/f", "/q", "/r", "/k", note["Audio"]]
                     with noBundledLibs():
-                        self.fp = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo = info)
+                        self.fp = subprocess.Popen(cmd, startupinfo = info)
                         self.fp.wait()
 
                 if self.canceled:
@@ -619,7 +619,7 @@ class MediaWorker(QThread):
                     cmd += ["-af", af_params]
                 cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-c:v", "libx264", "-vf", vf, "-profile:v", "baseline", "-level", "3.0", "-c:a", "aac", "-ac", "2", note["Video"]]
                 with noBundledLibs():
-                    self.fp = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=info)
+                    self.fp = subprocess.Popen(cmd, startupinfo=info)
                     self.fp.wait()
                     retcode = self.fp.returncode
                     if retcode != 0:
