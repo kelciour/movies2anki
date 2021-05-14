@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import subprocess, sys, json, time, re, os, atexit
+import logging
+
 try:
     from aqt.sound import play, _packagedCmd, si
     import aqt.sound as sound # Anki 2.1.17+
@@ -66,6 +68,13 @@ if ffprobe_executable is None:
     ffprobe_executable = '/usr/local/bin/ffprobe'
 if ffmpeg_executable is None:
     ffmpeg_executable = '/usr/local/bin/ffmpeg'
+
+logger = logging.getLogger()
+ch = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.handlers = []
+logger.addHandler(ch)
 
 def timeToSeconds(t):
     hours, minutes, seconds, milliseconds = t.split('.')
@@ -486,6 +495,9 @@ def joinCard(isPrev=False, isNext=False):
             "Notes joined and %d cards deleted.",
             cnt) % cnt)
 
+def join_and_add_double_quotes(cmd):
+    return '[' + ' '.join(['"{}"'.format(s) if ' ' in s else s for s in cmd]) + ']'
+
 class MediaWorker(QThread):
     updateProgress = pyqtSignal(int)
     updateProgressText = pyqtSignal(str)
@@ -499,6 +511,9 @@ class MediaWorker(QThread):
         self.canceled = False
         self.fp = None
 
+        if os.environ.get("ADDON_DEBUG"):
+            logger.setLevel(logging.DEBUG)
+
     def cancel(self):
         self.canceled = True
 
@@ -509,6 +524,8 @@ class MediaWorker(QThread):
         job_start = time.time()
 
         mp3gain_executable = find_executable("mp3gain")
+
+        logger.debug('mpv_executable: {}'.format(mpv_executable))
 
         map_ids = {}
         config = mw.addonManager.getConfig(__name__)
@@ -538,7 +555,11 @@ class MediaWorker(QThread):
             if note["Path"] not in map_ids:
                 with noBundledLibs():
                     audio_id = 0
-                    track_list_count = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8')
+                    cmd = [mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]]
+                    logger.debug('check_output: {}'.format('Started'))
+                    logger.debug('check_output: {}'.format(join_and_add_double_quotes(cmd)))
+                    track_list_count = check_output(cmd, startupinfo=info, encoding='utf-8').strip()
+                    logger.debug('check_output: {}, {}'.format('Finished', track_list_count))
                     track_list_count = track_list_count.replace('term-msg:', '').replace('[term-msg]', '')
                     track_list_count = int(track_list_count)
                     for i in range(track_list_count):
@@ -559,6 +580,7 @@ class MediaWorker(QThread):
                         audio_id = 0
 
                 map_ids[note["Path"]] = audio_id
+                logger.debug(f'audio_id: {audio_id}')
             
             audio_id = map_ids[note["Path"]]
 
@@ -570,8 +592,11 @@ class MediaWorker(QThread):
             af_params = default_af_params
             if NORMALIZE_AUDIO and not (NORMALIZE_AUDIO_WITH_MP3GAIN and mp3gain_executable):
                 cmd = [ffmpeg_executable, "-ss", ss, "-i", note["Path"], "-t", str(t), "-af", "loudnorm=%s:print_format=json" % NORMALIZE_AUDIO_FILTER, "-f", "null", "-"]
+                logger.debug('normalize_audio: {}'.format('Started'))
+                logger.debug('normalize_audio: {}'.format(join_and_add_double_quotes(cmd)))
                 with noBundledLibs():
                     output = check_output(cmd, startupinfo=info, encoding='utf-8')
+                logger.debug('normalize_audio: {}'.format('Finished'))
                 # https://github.com/slhck/ffmpeg-normalize/blob/5fe6b3df5f4b36b398fa08c11a9001b1e67cec10/ffmpeg_normalize/_streams.py#L171
                 output_lines = [line.strip() for line in output.split('\n')]
                 loudnorm_start = False
@@ -597,9 +622,12 @@ class MediaWorker(QThread):
                     cmd += ["-af", af_params]
                 cmd += ["-map", "0:a:{}".format(audio_id), note["Audio"]]
 
+                logger.debug('export_audio: {}'.format('Started'))
+                logger.debug('export_audio: {}'.format(join_and_add_double_quotes(cmd)))
                 with noBundledLibs():
                     self.fp = subprocess.Popen(cmd, startupinfo=info)
                     self.fp.wait()
+                logger.debug('export_audio: {}'.format('Finished'))
 
                 if NORMALIZE_AUDIO and NORMALIZE_AUDIO_WITH_MP3GAIN and mp3gain_executable:
                     cmd = [mp3gain_executable, "/f", "/q", "/r", "/k", note["Audio"]]
@@ -618,9 +646,12 @@ class MediaWorker(QThread):
                 if af_params:
                     cmd += ["-af", af_params]
                 cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-c:v", "libx264", "-vf", vf, "-profile:v", "baseline", "-level", "3.0", "-c:a", "aac", "-ac", "2", note["Video"]]
+                logger.debug('export_video: {}'.format('Started'))
+                logger.debug('export_video: {}'.format(join_and_add_double_quotes(cmd)))
                 with noBundledLibs():
                     self.fp = subprocess.Popen(cmd, startupinfo=info)
                     self.fp.wait()
+                    logger.debug('export_video: {}'.format('Finished'))
                     retcode = self.fp.returncode
                     if retcode != 0:
                         cmd_debug = ' '.join(['"' + c + '"' for c in cmd])
@@ -644,9 +675,11 @@ def cancelProgressDialog():
     mw.worker.cancel()
 
 def setProgress(progress):
+    logger.debug('progress: {:.2f}%'.format(progress))
     mw.progressDialog.setValue(progress)
 
 def setProgressText(text):
+    logger.debug('file: {}'.format(text))
     mw.progressDialog.setLabelText(text)
 
 def saveNote(nid, fld, val):
