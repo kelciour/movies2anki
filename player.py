@@ -2,6 +2,7 @@
 
 import subprocess, sys, json, time, re, os, atexit
 import logging
+import tempfile
 
 try:
     from aqt.sound import play, _packagedCmd, si
@@ -554,25 +555,37 @@ class MediaWorker(QThread):
             # select the audio stream selected by mpv
             if note["Path"] not in map_ids:
                 with noBundledLibs():
-                    audio_id = 0
-                    cmd = [mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]]
-                    logger.debug('check_output: {}'.format('Started'))
-                    logger.debug('check_output: {}'.format(join_and_add_double_quotes(cmd)))
-                    track_list_count = check_output(cmd, startupinfo=info, encoding='utf-8').strip()
-                    logger.debug('check_output: {}, {}'.format('Finished', track_list_count))
-                    track_list_count = track_list_count.replace('term-msg:', '').replace('[term-msg]', '')
-                    track_list_count = int(track_list_count)
-                    for i in range(track_list_count):
-                        track_type = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/type}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8')
-                        if track_type.strip() == 'audio':
-                            track_selected = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/selected}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8')
-                            if track_selected.strip() == 'yes':
-                                output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/ff-index}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8')
-                                audio_id = int(output.strip()) - 1
-                                break
-                    else:
+                    audio_id = -1
+                    try:
+                        cmd = [mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]]
+                        logger.debug('check_output: {}'.format('Started'))
+                        logger.debug('check_output: {}'.format(join_and_add_double_quotes(cmd)))
+                        with tempfile.TemporaryFile() as tmpfile:
+                            subprocess.check_call(cmd, startupinfo=info, encoding='utf-8', stdout=tmpfile, timeout=5)
+                            tmpfile.seek(0)
+                            track_list_count = tmpfile.read().decode('utf-8').strip()
+                        logger.debug('check_output: {}, {}'.format('Finished', track_list_count))
+                        track_list_count = track_list_count.replace('term-msg:', '').replace('[term-msg]', '')
+                        track_list_count = int(track_list_count)
+                        for i in range(track_list_count):
+                            track_type = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/type}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8', timeout=3)
+                            if track_type.strip() == 'audio':
+                                track_selected = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/selected}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8', timeout=3)
+                                if track_selected.strip() == 'yes':
+                                    output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/ff-index}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8', timeout=3)
+                                    audio_id = int(output.strip()) - 1
+                                    break
+                    except Exception as e:
+                        print('EXCEPTION:', e)
+                        if os.environ.get("ADDON_DEBUG"):
+                            input('Press any key to continue...')
+                    if audio_id == -1:
                         # select the last audio stream
-                        output = check_output([ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", note["Path"]], startupinfo=info, encoding='utf-8')
+                        cmd = [ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", note["Path"]]
+                        logger.debug('ffprobe audio_streams: {}'.format('Started'))
+                        logger.debug('ffprobe audio_streams: {}'.format(join_and_add_double_quotes(cmd)))
+                        output = check_output(cmd, startupinfo=info, encoding='utf-8')
+                        logger.debug('ffprobe audio_streams: {}, {}'.format('Finished', output))
                         json_data = json.loads(output)
                         for index, stream in enumerate(json_data["streams"]):
                             audio_id = index
