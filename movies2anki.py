@@ -724,6 +724,8 @@ class Model(object):
 
         subs = pysubs2.load(filename, encoding=enc)
 
+        subs.sort()
+
         subs2 = []
         for line in subs:
             subs2.append((line.start / 1000, line.end / 1000, line.text))
