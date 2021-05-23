@@ -180,6 +180,12 @@ def is_not_sdh_subtitle(sub):
 def format_subtitles(subs, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases):
     subs2 = []
     for sub_start, sub_end, sub_text in subs:
+        sub_text = re.sub(r"{\\\w+\d*}", "", sub_text)
+        sub_text = re.sub(r"\t", " ", sub_text)
+        sub_text = re.sub(r"\n +", "\n", sub_text)
+        sub_text = re.sub(r"  +", " ", sub_text)
+        sub_text = re.sub(r'<\d+:\d+:\d+\.\d+>', '', sub_text)
+
         sub_chunks = sub_text.split('\\N')
         sub_content = sub_chunks[0]
         for sub_line in sub_chunks[1:]:
@@ -190,10 +196,6 @@ def format_subtitles(subs, is_ignore_SDH, join_lines_separator, join_sentences_s
 
             sub_content += sub_line
 
-            sub_content = re.sub(r"{\\\w+\d*}", "", sub_content)
-            sub_content = re.sub(r"\t", " ", sub_content)
-            sub_content = re.sub(r"\n +", "\n", sub_content)
-            sub_content = re.sub(r"  +", " ", sub_content)
             sub_content = sub_content.strip()
 
         subs2.append((sub_start, sub_end, sub_content))
@@ -309,8 +311,13 @@ def remove_tags(sub):
 
     return sub
 
-def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_with, join_questions_with_answers, join_sentences_separator, join_lines_separator, is_gap_phrases):
+def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_with, join_questions_with_answers, join_sentences_separator, join_lines_separator, is_gap_phrases, is_split_long_phrases):
     subs = []
+
+    if phrases_duration_limit == 0 or not is_split_long_phrases:
+        sentence_duration_limit = 15
+    else:
+        sentence_duration_limit = phrases_duration_limit
 
     for sub in en_subs:
         sub_start = sub[0]
@@ -339,7 +346,7 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
                 subs.append((sub_start, sub_end, sub_content_original))
             elif (prev_sub_content.endswith(u"?") or prev_sub_content.endswith(u"？")) and join_questions_with_answers and (sub_start - prev_sub_end) <= 5:
                 subs[-1] = (prev_sub_start, sub_end, prev_sub_content_original + join_sentences_separator + sub_content_original)
-            elif flag and (sub_start - prev_sub_end) <= 15:
+            elif flag and (sub_end - prev_sub_start) <= sentence_duration_limit:
                 subs[-1] = (prev_sub_start, sub_end, prev_sub_content_original + join_lines_separator + sub_content_original)
             else:
                 subs.append((sub_start, sub_end, sub_content_original))
@@ -954,7 +961,7 @@ class Model(object):
         # print "English subtitles: %s" % len(en_subs)
 
         # Разбиваем субтитры на предложения
-        self.en_subs_sentences = convert_into_sentences(en_subs, self.phrases_duration_limit, self.join_lines_that_end_with, self.join_questions_with_answers, self.join_sentences_separator, self.join_lines_separator, self.is_gap_phrases)
+        self.en_subs_sentences = convert_into_sentences(en_subs, self.phrases_duration_limit, self.join_lines_that_end_with, self.join_questions_with_answers, self.join_sentences_separator, self.join_lines_separator, self.is_gap_phrases, self.is_split_long_phrases)
         # print "English sentences: %s" % len(self.en_subs_sentences)
 
         # Разбиваем субтитры на фразы
