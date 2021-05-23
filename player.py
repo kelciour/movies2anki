@@ -454,6 +454,8 @@ def joinCard(isPrev=False, isNext=False):
         if isNext:
             time_end = next_time_end
 
+        config = mw.addonManager.getConfig(__name__)
+
         c = mw.reviewer.card.note()
         for name, val in c.items():
             if name == "Id":
@@ -461,7 +463,7 @@ def joinCard(isPrev=False, isNext=False):
             elif name == "Audio":
                 c[name] = "%s_%s-%s.mp3" % (card_prefix, secondsToTime(time_start), secondsToTime(time_end))
             elif name == "Video":
-                c[name] = "%s_%s-%s.mp4" % (card_prefix, secondsToTime(time_start), secondsToTime(time_end))
+                c[name] = "%s_%s-%s.%s" % (card_prefix, secondsToTime(time_start), secondsToTime(time_end), config['video extension'])
             elif name == "Source":
                 pass
             elif name == "Path":
@@ -655,10 +657,13 @@ class MediaWorker(QThread):
 
             if "Video Sound" in note and (note["Video Sound"] == "" or not os.path.exists(note["Video"])):
                 self.fp = None
-                cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-strict", "-2", "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
+                cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
                 if af_params:
                     cmd += ["-af", af_params]
-                cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-c:v", "libx264", "-vf", vf, "-profile:v", "baseline", "-level", "3.0", "-c:a", "aac", "-ac", "2", note["Video"]]
+                cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-ac", "2", "-vf", vf]
+                if note["Video"].endswith('.webm'):
+                    cmd += config["video encoding settings (webm)"].split()
+                cmd += [note["Video"]]
                 logger.debug('export_video: {}'.format('Started'))
                 logger.debug('export_video: {}'.format(join_and_add_double_quotes(cmd)))
                 with noBundledLibs():

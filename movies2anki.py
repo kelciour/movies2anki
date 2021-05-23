@@ -825,6 +825,8 @@ class Model(object):
             else:
                 self.create_new_default_model()
 
+        config = mw.addonManager.getConfig(__name__)
+
         ffmpeg_split_timestamps = []
         for idx in range(len(en_subs)):
             start_time = seconds_to_tsv_time(en_subs[idx][0])
@@ -846,7 +848,7 @@ class Model(object):
                 filename_suffix = ".sub"
 
             sound = prefix + "_" + start_time + "-" + end_time + ".mp3"
-            video = prefix + "_" + start_time + "-" + end_time + filename_suffix + ".mp4"
+            video = prefix + "_" + start_time + "-" + end_time + filename_suffix + "." + config["video extension"]
                
             if self.is_add_dir_to_media_path:
                 sound = prefix + ".media/" + sound
