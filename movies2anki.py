@@ -294,6 +294,8 @@ def split_long_phrases(en_subs, phrases_duration_limit):
 
                 pos = int((s_end - sub_start) / sub_chunks_limit)
                 
+                pos = min(pos, sub_chunks_num - 1) # IndexError: list index out of range
+
                 sub_splitted[pos].append((s_start, s_end, s_content))
 
             for s in sub_splitted:
