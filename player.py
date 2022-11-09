@@ -583,10 +583,13 @@ class MediaWorker(QThread):
                             input('Press any key to continue...')
                     if audio_id == -1:
                         # select the last audio stream
-                        cmd = [ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", note["Path"]]
+                        cmd = [ffprobe_executable, "-hide_banner", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", note["Path"]]
                         logger.debug('ffprobe audio_streams: {}'.format('Started'))
                         logger.debug('ffprobe audio_streams: {}'.format(join_and_add_double_quotes(cmd)))
-                        output = check_output(cmd, startupinfo=info, encoding='utf-8')
+                        try:
+                            output = check_output(cmd, startupinfo=info, stderr=subprocess.STDOUT, encoding='utf-8')
+                        except Exception as e:
+                            raise Exception(e.output) from e
                         logger.debug('ffprobe audio_streams: {}, {}'.format('Finished', output))
                         json_data = json.loads(output)
                         for index, stream in enumerate(json_data["streams"]):
