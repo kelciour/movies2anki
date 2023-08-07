@@ -9,9 +9,9 @@ from distutils.spawn import find_executable
 from subprocess import check_output
 
 from aqt.qt import *
-from aqt.utils import showWarning, isMac, tooltip, showText
+from aqt.utils import showWarning, is_mac, tooltip, showText
 from anki.hooks import addHook
-from anki.utils import noBundledLibs, tmpdir, tmpfile
+from anki.utils import no_bundled_libs, tmpdir, tmpfile
 
 try:
     from aqt.sound import si
@@ -22,7 +22,7 @@ from .utils import timeToSeconds, secondsToTime, getSelectedAudioId
 
 from .forms import condensed_audio_exporter
 
-if isMac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
+if is_mac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
 
@@ -75,18 +75,18 @@ def updateNotes(browser, nids):
     audio_map_ids = {}
     mw.progress.start(parent=browser)
     for c, nid in enumerate(sorted(nids), 1):
-        note = mw.col.getNote(nid)
-        m = note.model()
+        note = mw.col.get_note(nid)
+        m = note.note_type()
 
         if not m['name'].startswith('movies2anki'):
             errors["The note type is not supported"] += 1
             continue
 
-        fields = mw.col.models.fieldNames(m)
+        fields = mw.col.models.field_names(m)
 
         if "Audio Sound" not in fields and is_collection_media:
             mw.progress.start()
-            fm = mw.col.models.newField("Audio Sound")
+            fm = mw.col.models.new_field("Audio Sound")
             mw.col.models.addField(m, fm)
             mw.col.models.save(m)
             mw.progress.finish()
@@ -102,7 +102,7 @@ def updateNotes(browser, nids):
         ret = 1
         if audio_file and is_collection_media and os.path.exists(note["Audio"]):
             cmd = ["ffprobe", "-loglevel", "warning", audio_file]
-            with noBundledLibs():
+            with no_bundled_libs():
                 p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
                 ret = p.wait()
                 if ret != 0:
@@ -150,14 +150,14 @@ def updateNotes(browser, nids):
     progressDialog.setWindowIcon(QIcon(":/icons/anki.png"))
     progressDialog.setWindowTitle("Generating Media")
     flags = progressDialog.windowFlags()
-    flags ^= Qt.WindowMinimizeButtonHint
+    flags ^= Qt.WindowType.WindowMinimizeButtonHint
     progressDialog.setWindowFlags(flags)
     progressDialog.setMinimumWidth(300)
     progressDialog.setFixedHeight(progressDialog.height())
     progressDialog.setCancelButtonText("Cancel")
     progressDialog.setMinimumDuration(0)
     progress_bar = QProgressBar(progressDialog)
-    progress_bar.setAlignment(Qt.AlignCenter)
+    progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
     progressDialog.setBar(progress_bar)
 
     def cancelProgressDialog():
@@ -173,7 +173,7 @@ def updateNotes(browser, nids):
         progressDialog.setWindowTitle(text)
 
     def saveNote(nid, fld, val):
-        note = mw.col.getNote(int(nid))
+        note = mw.col.get_note(int(nid))
         note[fld] = "[sound:%s]" % val
         note.flush()
 
@@ -267,7 +267,7 @@ class AudioExporter(QThread):
             if af_params:
                 cmd += ["-af", af_params]
             cmd += ["-map", "0:a:{}".format(audio_id), audio_file]
-            with noBundledLibs():
+            with no_bundled_libs():
                 p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
                 p.wait()
 
@@ -290,7 +290,7 @@ class AudioExporter(QThread):
                 for audio_file, ret in self.notes_to_process[path]:
                     if ret != 0:
                         cmd = ["ffprobe", "-loglevel", "warning", audio_file]
-                        with noBundledLibs():
+                        with no_bundled_libs():
                             p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
                             if p.wait() != 0:
                                 self.errors["The audio file seems to be corrupted and was skipped"] += 1
@@ -300,7 +300,7 @@ class AudioExporter(QThread):
                     f.write("file '{}'\n".format(audio_file))
 
             cmd = [ffmpeg_executable, "-y", "-f", "concat", "-safe", "0", "-i", list_to_concatenate, "-c", "copy", os.path.join(self.output_directory, output_file)]
-            with noBundledLibs():
+            with no_bundled_libs():
                 p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
                 p.wait()
 

@@ -13,10 +13,10 @@ except ImportError:
 
 from anki.lang import _, ngettext
 from anki.hooks import addHook, wrap
-from anki.utils import noBundledLibs, stripHTML
+from anki.utils import no_bundled_libs, strip_html
 from aqt.reviewer import Reviewer
 from aqt import mw, browser
-from aqt.utils import showWarning, showInfo, tooltip, isWin, isMac
+from aqt.utils import showWarning, showInfo, tooltip, is_win, is_mac
 from aqt.qt import *
 from subprocess import check_output, CalledProcessError
 
@@ -31,7 +31,7 @@ IINA_DIR = "/Applications/IINA.app/Contents/MacOS/IINA"
 # ----------------------------------------------
 
 info = None
-if isWin:
+if is_win:
     info = subprocess.STARTUPINFO()
     info.wShowWindow = subprocess.SW_HIDE
     info.dwFlags = subprocess.STARTF_USESHOWWINDOW
@@ -40,17 +40,17 @@ p = None
 
 from distutils.spawn import find_executable
 
-if isMac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
+if is_mac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
 
-if isMac and '/opt/homebrew/bin' not in os.environ['PATH'].split(':'):
+if is_mac and '/opt/homebrew/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/opt/homebrew/bin:" + os.environ['PATH']
 
 mpv_executable, env = find_executable("mpv"), os.environ
 
-if mpv_executable is None and isMac:
+if mpv_executable is None and is_mac:
     mpv_executable = "/Applications/mpv.app/Contents/MacOS/mpv"
     if not os.path.exists(mpv_executable):
         mpv_executable = None
@@ -67,8 +67,12 @@ ffprobe_executable = find_executable("ffprobe")
 # maybe a fix for macOS
 if ffprobe_executable is None:
     ffprobe_executable = '/usr/local/bin/ffprobe'
+    if not os.path.exists(ffprobe_executable):
+        ffprobe_executable = None
 if ffmpeg_executable is None:
     ffmpeg_executable = '/usr/local/bin/ffmpeg'
+    if not os.path.exists(ffmpeg_executable):
+        ffmpeg_executable = None
 
 logger = logging.getLogger()
 ch = logging.StreamHandler(sys.stdout)
@@ -104,14 +108,14 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         else:
             path = fields["Video"]
 
-    path = stripHTML(path)
+    path = strip_html(path)
 
     # elif path.endswith(".mp3"): # workaround to fix replay button (R) without refreshing webview.
     #     path = fields["Audio"]
     # else:
     #     path = fields["Video"]
 
-    # if mw.reviewer.state == "question" and mw.reviewer.card.model()["name"] == "movies2anki - subs2srs (video)":
+    # if mw.reviewer.state == "question" and mw.reviewer.card.note_type()["name"] == "movies2anki - subs2srs (video)":
     #     path = fields["Video"]
 
     m = re.fullmatch(r"(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*", path)
@@ -189,7 +193,7 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
 
     if VLC_DIR:
         default_args = ["-I", "dummy", "--play-and-exit", "--no-video-title", "--video-on-top", "--sub-track=8"]
-        if isWin:
+        if is_win:
             default_args += ["--dummy-quiet"]
         default_args += ["--no-sub-autodetect-file"]
     else:
@@ -251,7 +255,7 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
     if VLC_DIR:
         cmd = [VLC_DIR] + args + [os.path.normpath(fullpath)]
     else:
-        if isMac and os.path.exists(IINA_DIR):
+        if is_mac and os.path.exists(IINA_DIR):
             args = [o.replace("--", "--mpv-") for o in args]
             cmd = [IINA_DIR] + args + [fullpath]
         else:
@@ -264,11 +268,11 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         p = subprocess.Popen(cmd)
         return
 
-    with noBundledLibs():
+    with no_bundled_libs():
         p = subprocess.Popen(cmd)
 
 def queueExternalAV(self, path):
-    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.model()["name"] == "movies2anki (add-on)" or mw.reviewer.card.model()["name"].startswith("movies2anki - subs2srs")):
+    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
         queueExternal(path)
     else:
         _player(path)
@@ -276,13 +280,16 @@ def queueExternalAV(self, path):
 def queueExternal(path):
     global p, _player
 
-    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.model()["name"] == "movies2anki (add-on)" or mw.reviewer.card.model()["name"].startswith("movies2anki - subs2srs")):
+    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
         # if mw.reviewer.state == "answer" and path.endswith(".mp4"):
         #     return
 
         try:
             clearExternalQueue()
+            oldcwd = os.getcwd()
+            os.chdir(mw.col.media.dir())
             ret = playVideoClip(path.filename if av_player else path)
+            os.chdir(oldcwd)
             if ret == False:
                 _player(path)
         except OSError:
@@ -323,10 +330,13 @@ _queueEraser = sound._queueEraser
 sound._queueEraser = clearExternalQueue
 
 def adjustAudio(state, shift=None):
-    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.model()["name"] == "movies2anki (add-on)" or mw.reviewer.card.model()["name"].startswith("movies2anki - subs2srs")):
+    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
         try:
             clearExternalQueue()
+            oldcwd = os.getcwd()
+            os.chdir(mw.col.media.dir())
             playVideoClip(state=state, shift=shift)
+            os.chdir(oldcwd)
         except OSError:
             return showWarning(r"""<p>Please install <a href='https://mpv.io'>mpv</a>.</p>
                 On Windows download mpv and either update PATH environment variable or put mpv.exe in Anki installation folder (C:\Program Files\Anki).""", parent=mw)
@@ -334,14 +344,17 @@ def adjustAudio(state, shift=None):
 def selectVideoPlayer():
     global VLC_DIR
     try:
-        if isMac and os.path.exists(IINA_DIR):
+        if is_mac and os.path.exists(IINA_DIR):
             return
 
         if mpv_executable is None:
             raise OSError()
 
-        with noBundledLibs():
+        if with_bundled_libs:
             p = subprocess.Popen([mpv_executable, "--version"], startupinfo=info)
+        else:
+            with no_bundled_libs():
+                p = subprocess.Popen([mpv_executable, "--version"], startupinfo=info)
         
         if p != None and p.poll() is None:
             p.kill()
@@ -349,7 +362,7 @@ def selectVideoPlayer():
         if VLC_DIR != "":
             return
         
-        if isWin:
+        if is_win:
             VLC_DIR = r"C:\Program Files\VideoLAN\VLC\vlc.exe"
             if os.path.exists(VLC_DIR):
                 return
@@ -357,7 +370,7 @@ def selectVideoPlayer():
             VLC_DIR = r"C:\Program Files (x86)\VideoLAN\VLC\vlc.exe"
             if os.path.exists(VLC_DIR):
                 return
-        elif isMac:
+        elif is_mac:
             VLC_DIR = r"/Applications/VLC.app/Contents/MacOS/VLC"
             if os.path.exists(VLC_DIR):
                 return
@@ -393,12 +406,15 @@ DefaultShortcutKeys = Reviewer._shortcutKeys
 Reviewer._shortcutKeys = shortcutKeys
 
 def replayVideo(isEnd=True, isPrev=False, isNext=False):
-    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.model()["name"] == "movies2anki (add-on)" or mw.reviewer.card.model()["name"].startswith("movies2anki - subs2srs")):
+    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
         clearExternalQueue()
+        oldcwd = os.getcwd()
+        os.chdir(mw.col.media.dir())
         playVideoClip(isEnd=isEnd, isPrev=isPrev, isNext=isNext)
+        os.chdir(oldcwd)
 
 def joinCard(isPrev=False, isNext=False):
-    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.model()["name"] == "movies2anki (add-on)" or mw.reviewer.card.model()["name"].startswith("movies2anki - subs2srs")):
+    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
         m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", mw.reviewer.card.note()["Audio"])
 
         card_prefix, time_start, time_end = m.groups()
@@ -556,7 +572,7 @@ class MediaWorker(QThread):
 
             # select the audio stream selected by mpv
             if note["Path"] not in map_ids:
-                with noBundledLibs():
+                with no_bundled_libs():
                     audio_id = -1
                     try:
                         cmd = [mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]]
@@ -591,16 +607,18 @@ class MediaWorker(QThread):
                         json_data = json.loads(output)
                         for index, stream in enumerate(json_data["streams"]):
                             audio_id = index
-                    if audio_id < 0:
-                        audio_id = 0
+                    # if audio_id < 0:
+                    #     audio_id = 0
 
                 map_ids[note["Path"]] = audio_id
                 logger.debug(f'audio_id: {audio_id}')
             
             audio_id = map_ids[note["Path"]]
+            if not ffmpeg_executable:
+                audio_id += 1
 
             # TODO
-            vf = "scale=-2:320"
+            video_height = 320
 
             self.updateProgressText.emit(note["Source"] + "  " + ss)
 
@@ -609,7 +627,7 @@ class MediaWorker(QThread):
                 cmd = [ffmpeg_executable, "-ss", ss, "-i", note["Path"], "-t", str(t), "-af", "loudnorm=%s:print_format=json" % NORMALIZE_AUDIO_FILTER, "-f", "null", "-"]
                 logger.debug('normalize_audio: {}'.format('Started'))
                 logger.debug('normalize_audio: {}'.format(join_and_add_double_quotes(cmd)))
-                with noBundledLibs():
+                with no_bundled_libs():
                     output = check_output(cmd, startupinfo=info, encoding='utf-8')
                 logger.debug('normalize_audio: {}'.format('Finished'))
                 # https://github.com/slhck/ffmpeg-normalize/blob/5fe6b3df5f4b36b398fa08c11a9001b1e67cec10/ffmpeg_normalize/_streams.py#L171
@@ -630,24 +648,37 @@ class MediaWorker(QThread):
                 else:
                     af_params = nf_params
 
-            if note["Audio Sound"] == "" or not os.path.exists(note["Audio"]):
+            if note["Audio Sound"] == "" or not os.path.exists(os.path.join(mw.col.media.dir(), note["Audio"])):
                 self.fp = None
-                cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
-                if af_params:
-                    cmd += ["-af", af_params]
-                cmd += ["-map", "0:a:{}".format(audio_id), note["Audio"]]
+                if ffmpeg_executable:
+                    cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
+                    if af_params:
+                        cmd += ["-af", af_params]
+                    cmd += ["-map", "0:a:{}".format(audio_id), note["Audio"]]
+                else:
+                    cmd = [mpv_executable, note["Path"]]
+                    # cmd += ["--include=%s" % self.mpvConf]
+                    cmd += ["--start=%s" % ss, "--length=%s" % "{:.3f}".format(t)]
+                    cmd += ["--aid=%d" % audio_id]
+                    cmd += ["--video=no"]
+                    cmd += ["--af=afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (af_st, af_d, "{:.3f}".format(af_to - af_d), af_d)]
+                    cmd += ["--o=%s" % note["Audio"]]
 
                 logger.debug('export_audio: {}'.format('Started'))
                 logger.debug('export_audio: {}'.format(join_and_add_double_quotes(cmd)))
-                with noBundledLibs():
-                    self.fp = subprocess.Popen(cmd, startupinfo=info)
+                if with_bundled_libs:
+                    self.fp = subprocess.Popen(cmd, startupinfo=info, cwd=mw.col.media.dir())
                     self.fp.wait()
+                else:
+                    with no_bundled_libs():
+                        self.fp = subprocess.Popen(cmd, startupinfo=info, cwd=mw.col.media.dir())
+                        self.fp.wait()
                 logger.debug('export_audio: {}'.format('Finished'))
 
                 if NORMALIZE_AUDIO and NORMALIZE_AUDIO_WITH_MP3GAIN and mp3gain_executable:
                     cmd = [mp3gain_executable, "/f", "/q", "/r", "/k", note["Audio"]]
-                    with noBundledLibs():
-                        self.fp = subprocess.Popen(cmd, startupinfo = info)
+                    with no_bundled_libs():
+                        self.fp = subprocess.Popen(cmd, startupinfo=info, cwd=mw.col.media.dir())
                         self.fp.wait()
 
                 if self.canceled:
@@ -655,27 +686,51 @@ class MediaWorker(QThread):
 
                 self.updateNote.emit(str(note.id), "Audio Sound", note["Audio"])
 
-            if "Video Sound" in note and (note["Video Sound"] == "" or not os.path.exists(note["Video"])):
+            if "Video Sound" in note and (note["Video Sound"] == "" or not os.path.exists(os.path.join(mw.col.media.dir(), note["Video"]))):
                 self.fp = None
-                cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
-                if af_params:
-                    cmd += ["-af", af_params]
-                cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-ac", "2", "-vf", vf]
-                if note["Video"].endswith('.webm'):
-                    cmd += config["video encoding settings (webm)"].split()
-                cmd += [note["Video"]]
+                if ffmpeg_executable:
+                    cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
+                    if af_params:
+                        cmd += ["-af", af_params]
+                    cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-ac", "2", "-vf", "scale=-2:%s" % video_height]
+                    if note["Video"].endswith('.webm'):
+                        cmd += config["video encoding settings (webm)"].split()
+                    cmd += [note["Video"]]
+                else:
+                    cmd = [mpv_executable, note["Path"]]
+                    # cmd += ["--include=%s" % self.mpvConf]
+                    cmd += ["--start=%s" % ss, "--length=%s" % "{:.3f}".format(t)]
+                    cmd += ["--sub=no"]
+                    cmd += ["--aid=%d" % audio_id]
+                    cmd += ["--af=afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (af_st, af_d, af_to - af_d, af_d)]
+                    cmd += ["--vf-add=lavfi-scale=%s:%s" % (-2, video_height)]
+                    if note["Video"].endswith('.webm'):
+                        cmd += ["--ovc=libvpx-vp9"]
+                        cmd += ["--ovcopts=b=1400K,threads=4,crf=23,qmin=0,qmax=36,speed=2"]
+                    else:
+                        cmd += ["--ovc=libx264"]
+                        cmd += ["--ovcopts=profile=main,level=31"]
+                        cmd += ["--vf-add=format=yuv420p"]
+                        cmd += ["--oac=aac"]
+                        cmd += ["--ofopts=movflags=+faststart"]
+                    cmd += ["--o=%s" % note["Video"]]
                 logger.debug('export_video: {}'.format('Started'))
                 logger.debug('export_video: {}'.format(join_and_add_double_quotes(cmd)))
-                with noBundledLibs():
-                    self.fp = subprocess.Popen(cmd, startupinfo=info)
+                if with_bundled_libs:
+                    self.fp = subprocess.Popen(cmd, startupinfo=info, cwd=mw.col.media.dir())
                     self.fp.wait()
-                    logger.debug('export_video: {}'.format('Finished'))
-                    retcode = self.fp.returncode
-                    if retcode != 0:
-                        cmd_debug = ' '.join(['"' + c + '"' for c in cmd])
-                        cmd_debug = cmd_debug.replace(' "-loglevel" "quiet" ', ' ')
-                        cmd_debug = [cmd_debug]
-                        raise CalledProcessError(retcode, cmd_debug)
+                else:
+                    with no_bundled_libs():
+                        self.fp = subprocess.Popen(cmd, startupinfo=info, cwd=mw.col.media.dir())
+                        self.fp.wait()
+                logger.debug('export_video: {}'.format('Finished'))
+                retcode = self.fp.returncode
+                logger.debug('return code: {}'.format(retcode))
+                if retcode != 0:
+                    cmd_debug = ' '.join(['"' + c + '"' for c in cmd])
+                    cmd_debug = cmd_debug.replace(' "-loglevel" "quiet" ', ' ')
+                    cmd_debug = [cmd_debug]
+                    raise CalledProcessError(retcode, cmd_debug)
 
                 if self.canceled:
                     break
@@ -701,7 +756,7 @@ def setProgressText(text):
     mw.progressDialog.setLabelText(text)
 
 def saveNote(nid, fld, val):
-    note = mw.col.getNote(int(nid))
+    note = mw.col.get_note(int(nid))
     note[fld] = "[sound:%s]" % val
     note.flush()
 
@@ -718,12 +773,14 @@ def update_media():
     if ffmpeg_executable is None:
         ffmpeg_executable = find_executable("ffmpeg")
 
-    if isMac and ffmpeg_executable is None:
+    if is_mac and ffmpeg_executable is None:
         ffmpeg_executable = '/usr/local/bin/ffmpeg'
+        if not os.path.exists(ffmpeg_executable):
+            ffmpeg_executable = None
 
-    if not ffmpeg_executable:
-        return showWarning(r"""<p>Please install <a href='https://www.ffmpeg.org'>FFmpeg</a>.</p>
-        On Windows download FFmpeg and either update PATH environment variable or put ffmpeg.exe in Anki installation folder (C:\Program Files\Anki).""", parent=mw)
+    # if not ffmpeg_executable:
+    #     return showWarning(r"""<p>Please install <a href='https://www.ffmpeg.org'>FFmpeg</a>.</p>
+    #     On Windows download FFmpeg and either update PATH environment variable or put ffmpeg.exe in Anki installation folder (C:\Program Files\Anki).""", parent=mw)
 
     if hasattr(mw, 'worker') and mw.worker != None and mw.worker.isRunning():
         mw.progressDialog.setWindowState(mw.progressDialog.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
@@ -732,40 +789,40 @@ def update_media():
     
     data = []
     for model_name in ["movies2anki (add-on)", "movies2anki - subs2srs", "movies2anki - subs2srs (video)", "movies2anki - subs2srs (audio)"]:
-        m = mw.col.models.byName(model_name)
+        m = mw.col.models.by_name(model_name)
 
         if m == None:
             continue
 
         mid = m['id']
         query = "mid:%s" % (mid)
-        res = mw.col.findNotes(query)
+        res = mw.col.find_notes(query)
 
         if len(res) == 0:
             continue
 
 
-        if "Audio Sound" not in mw.col.models.fieldNames(m):
+        if "Audio Sound" not in mw.col.models.field_names(m):
             mw.progress.start()
-            fm = mw.col.models.newField("Audio Sound")
+            fm = mw.col.models.new_field("Audio Sound")
             mw.col.models.addField(m, fm)
             mw.col.models.save(m)
             mw.progress.finish()
 
-        if "Video Sound" not in mw.col.models.fieldNames(m) and m["name"] in ["movies2anki (add-on)", "movies2anki - subs2srs (video)"]:
+        if "Video Sound" not in mw.col.models.field_names(m) and m["name"] in ["movies2anki (add-on)", "movies2anki - subs2srs (video)"]:
             mw.progress.start()
-            fm = mw.col.models.newField("Video Sound")
+            fm = mw.col.models.new_field("Video Sound")
             mw.col.models.addField(m, fm)
             mw.col.models.save(m)
             mw.progress.finish()
 
         nids = sorted(res)
         for nid in nids:
-            note = mw.col.getNote(nid)
+            note = mw.col.get_note(nid)
 
-            if note["Audio Sound"] == "" or not os.path.exists(note["Audio"]):
+            if note["Audio Sound"] == "" or not os.path.exists(os.path.join(mw.col.media.dir(), note["Audio"])):
                 data.append(note)
-            elif m["name"] in ["movies2anki (add-on)", "movies2anki - subs2srs (video)"] and (note["Video Sound"] == "" or not os.path.exists(note["Video"])):
+            elif m["name"] in ["movies2anki (add-on)", "movies2anki - subs2srs (video)"] and (note["Video Sound"] == "" or not os.path.exists(os.path.join(mw.col.media.dir(), note["Video"]))):
                 data.append(note)
 
     if len(data) == 0:
@@ -775,11 +832,15 @@ def update_media():
     if hasattr(mw, 'progressDialog'):
         del mw.progressDialog
 
+    print('ffmpeg', find_executable("ffmpeg"))
+    print('mpv', find_executable("mpv"))
+    print('mpv packaged', _packagedCmd(["mpv"])[0])
+
     mw.progressDialog = QProgressDialog()
     mw.progressDialog.setWindowIcon(QIcon(":/icons/anki.png"))
     mw.progressDialog.setWindowTitle("Generating Media")
     flags = mw.progressDialog.windowFlags()
-    flags ^= Qt.WindowMinimizeButtonHint
+    flags ^= Qt.WindowType.WindowMinimizeButtonHint
     mw.progressDialog.setWindowFlags(flags)
     # mw.progressDialog.setFixedSize(300, mw.progressDialog.height())
     mw.progressDialog.setMinimumWidth(300)
@@ -787,7 +848,7 @@ def update_media():
     mw.progressDialog.setCancelButtonText("Cancel")
     mw.progressDialog.setMinimumDuration(0)
     mw.progress_bar = QProgressBar(mw.progressDialog)
-    mw.progress_bar.setAlignment(Qt.AlignCenter)
+    mw.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
     mw.progressDialog.setBar(mw.progress_bar)
 
     mw.worker = MediaWorker(data)
@@ -819,8 +880,8 @@ mw.form.menuTools.addAction(update_media_action)
 
 
 def on_card_answer(reviewer, card, ease):
-    note = mw.col.getNote(card.nid)
-    if not note.model()["name"].startswith("movies2anki"):
+    note = mw.col.get_note(card.nid)
+    if not note.note_type()["name"].startswith("movies2anki"):
         return
     if note["Id"] != note["Audio"][:-4]:
         note["Id"] = note["Audio"][:-4]

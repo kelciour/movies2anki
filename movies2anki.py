@@ -6,7 +6,14 @@ from aqt import mw
 from aqt.qt import *
 
 from aqt.utils import showInfo
-from anki.utils import call, noBundledLibs
+from anki.utils import call, no_bundled_libs, is_mac, is_win
+
+try:
+    from aqt.sound import _packagedCmd, si
+    import aqt.sound as sound # Anki 2.1.17+
+except ImportError:
+    from anki.sound import _packagedCmd, si
+    import anki.sound as sound
 
 from distutils.spawn import find_executable
 
@@ -34,11 +41,11 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
 
 import pysubs2
 
-if isMac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
+if is_mac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
 
-if isMac and '/opt/homebrew/bin' not in os.environ['PATH'].split(':'):
+if is_mac and '/opt/homebrew/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/opt/homebrew/bin:" + os.environ['PATH']
 
@@ -46,10 +53,16 @@ ffprobe_executable = find_executable("ffprobe")
 ffmpeg_executable = find_executable("ffmpeg")
 mpv_executable = find_executable("mpv")
 
-if mpv_executable is None and isMac:
+if mpv_executable is None and is_mac:
     mpv_executable = "/Applications/mpv.app/Contents/MacOS/mpv"
     if not os.path.exists(mpv_executable):
         mpv_executable = None
+
+with_bundled_libs = False
+if mpv_executable is None:
+    mpv_path, env = _packagedCmd(["mpv"])
+    mpv_executable = mpv_path[0]
+    with_bundled_libs = True
 
 # maybe a fix for macOS
 # if ffprobe_executable is None:
@@ -58,7 +71,7 @@ if mpv_executable is None and isMac:
     # ffmpeg_executable = '/usr/local/bin/ffmpeg'
 
 # anki.utils.py
-if isWin:
+if is_win:
     si = subprocess.STARTUPINFO()
     try:
         si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
@@ -773,15 +786,15 @@ class Model(object):
     def create_new_default_model(self):
         model = mw.col.models.new(self.model_name)
         model['css'] = styles.css.strip()
-        mw.col.models.addField(model, mw.col.models.newField("Id"))
-        mw.col.models.addField(model, mw.col.models.newField("Source"))
-        mw.col.models.addField(model, mw.col.models.newField("Path"))
-        mw.col.models.addField(model, mw.col.models.newField("Audio"))
-        mw.col.models.addField(model, mw.col.models.newField("Video"))
-        mw.col.models.addField(model, mw.col.models.newField("Expression"))
-        mw.col.models.addField(model, mw.col.models.newField("Meaning"))
-        mw.col.models.addField(model, mw.col.models.newField("Notes"))
-        t = mw.col.models.newTemplate("Card 1")
+        mw.col.models.addField(model, mw.col.models.new_field("Id"))
+        mw.col.models.addField(model, mw.col.models.new_field("Source"))
+        mw.col.models.addField(model, mw.col.models.new_field("Path"))
+        mw.col.models.addField(model, mw.col.models.new_field("Audio"))
+        mw.col.models.addField(model, mw.col.models.new_field("Video"))
+        mw.col.models.addField(model, mw.col.models.new_field("Expression"))
+        mw.col.models.addField(model, mw.col.models.new_field("Meaning"))
+        mw.col.models.addField(model, mw.col.models.new_field("Notes"))
+        t = mw.col.models.new_template("Card 1")
         t['qfmt'] = styles.front_template.strip()
         t['afmt'] = styles.back_template.strip()
         mw.col.models.addTemplate(model, t)
@@ -794,20 +807,20 @@ class Model(object):
         else:
             model['css'] = styles.subs2srs_css.strip()
         
-        mw.col.models.addField(model, mw.col.models.newField("Id"))
-        mw.col.models.addField(model, mw.col.models.newField("Source"))
-        mw.col.models.addField(model, mw.col.models.newField("Path"))
-        mw.col.models.addField(model, mw.col.models.newField("Audio"))
-        mw.col.models.addField(model, mw.col.models.newField("Video"))
-        mw.col.models.addField(model, mw.col.models.newField("Expression"))
-        mw.col.models.addField(model, mw.col.models.newField("Meaning"))
-        mw.col.models.addField(model, mw.col.models.newField("Notes"))
+        mw.col.models.addField(model, mw.col.models.new_field("Id"))
+        mw.col.models.addField(model, mw.col.models.new_field("Source"))
+        mw.col.models.addField(model, mw.col.models.new_field("Path"))
+        mw.col.models.addField(model, mw.col.models.new_field("Audio"))
+        mw.col.models.addField(model, mw.col.models.new_field("Video"))
+        mw.col.models.addField(model, mw.col.models.new_field("Expression"))
+        mw.col.models.addField(model, mw.col.models.new_field("Meaning"))
+        mw.col.models.addField(model, mw.col.models.new_field("Notes"))
         if "subs2srs (audio)" not in self.model_name:
-            mw.col.models.addField(model, mw.col.models.newField("Snapshot"))
+            mw.col.models.addField(model, mw.col.models.new_field("Snapshot"))
         if "subs2srs (video)" in self.model_name:
-            mw.col.models.addField(model, mw.col.models.newField("Video Sound"))
+            mw.col.models.addField(model, mw.col.models.new_field("Video Sound"))
 
-        t = mw.col.models.newTemplate("Card 1")
+        t = mw.col.models.new_template("Card 1")
         if self.model_name == "movies2anki - subs2srs (video)":
             t['qfmt'] = styles.subs2srs_video_front_template.strip()
             t['afmt'] = styles.subs2srs_video_back_template.strip()
@@ -828,7 +841,7 @@ class Model(object):
         
         # f_out = open(filename, 'w')
 
-        if not mw.col.models.byName(self.model_name):
+        if not mw.col.models.by_name(self.model_name):
             if self.model_name.startswith("movies2anki - subs2srs"):
                 self.create_subs2srs_default_model()
             else:
@@ -864,8 +877,8 @@ class Model(object):
                 video = prefix + ".media/" + video
 
             # New Anki Card
-            model = mw.col.models.byName(self.model_name)
-            mw.col.models.setCurrent(model)
+            model = mw.col.models.by_name(self.model_name)
+            mw.col.models.set_current(model)
 
             note = mw.col.newNote(forDeck=False)
 
@@ -899,7 +912,7 @@ class Model(object):
             #     continue
 
             did = mw.col.decks.id(self.deck_name)
-            note.model()['did'] = did
+            note.note_type()['did'] = did
 
             if mw.state == "deckBrowser":
                 mw.col.decks.select(did)
@@ -993,7 +1006,7 @@ class Model(object):
         add_pad_timings_between_phrases(self.ru_subs_phrases, self.shift_start, self.shift_end)
 
         if self.mode == "Movie":
-            with noBundledLibs():
+            with no_bundled_libs():
                 if ffprobe_executable is not None:
                     output = check_output([ffprobe_executable, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", self.video_file], startupinfo=si, encoding='utf-8')
                 else:
@@ -1171,8 +1184,24 @@ class VideoWorker(QThread):
                     snapshot_filename = chunk[4]
 
                     self.model.p = None
-                    cmd = [ffmpeg_executable, "-y", "-ss", snapshot_time, "-i", self.model.video_file, "-loglevel", "quiet", "-vf", "scale={}:{}".format(-2, self.model.video_height), "-vframes", "1", "-q:v", "2", snapshot_filename]
-                    call(cmd)
+                    if ffmpeg_executable:
+                        cmd = [ffmpeg_executable, "-y", "-ss", snapshot_time, "-i", self.model.video_file, "-loglevel", "quiet", "-vf", "scale={}:{}".format(-2, self.model.video_height), "-vframes", "1", "-q:v", "2", os.path.join(mw.col.media.dir(), snapshot_filename)]
+                    else:
+                        cmd = [mpv_executable, self.model.video_file]
+                        # cmd += ["--include=%s" % self.mpvConf]
+                        cmd += ["--start=%s" % snapshot_time]
+                        cmd += ["--audio=no"]
+                        cmd += ["--sub=no"]
+                        # cmd += ["--sub=%s" % sub]
+                        # cmd += ["--sub-visibility=yes"]
+                        # cmd += ["--sub-delay=%f" % self.subsManager.sub_delay]
+                        cmd += ["--frames=1"]
+                        cmd += ["--vf-add=lavfi-scale=%s:%s" % (-2, self.model.video_height)]
+                        cmd += ["--vf-add=format=fmt=yuvj422p"]
+                        cmd += ["--ovc=mjpeg"]
+                        cmd += ["--o=%s" % os.path.join(mw.col.media.dir(), snapshot_filename)]
+
+                    call(cmd, cwd=mw.col.media.dir())
                     # self.model.p = Popen(cmd, shell=True, **subprocess_args())
                     # self.model.p.wait()
 
@@ -1259,6 +1288,8 @@ class MainDialog(QDialog):
     def __init__(self, parent=None):
         QDialog.__init__(self, parent)
         
+        self.setStyle(QStyleFactory.create("fusion"))
+
         self.model = Model()
         self.audio_streams = []
         self.directory = self.model.input_directory
@@ -1393,7 +1424,7 @@ class MainDialog(QDialog):
     #         return
 
     #     try:
-    #         with noBundledLibs():
+    #         with no_bundled_libs():
     #             output = check_output([ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_file], startupinfo=si, encoding='utf-8')
     #     except OSError as ex:
     #         self.model.audio_id = 0
@@ -1783,7 +1814,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         self.progressDialog.setMinimumDuration(0)
 
         progress_bar = QProgressBar(self.progressDialog)
-        progress_bar.setAlignment(Qt.AlignCenter)
+        progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.progressDialog.setBar(progress_bar)
 
         self.worker = VideoWorker(self.model)
@@ -1796,7 +1827,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
         self.progressDialog.canceled.connect(self.cancelProgressDialog)
         self.progressDialog.setFixedSize(300, self.progressDialog.height())
-        self.progressDialog.setWindowModality(Qt.WindowModal)
+        self.progressDialog.setWindowModality(Qt.WindowModality.WindowModal)
 
         self.worker.start()
         
@@ -2005,16 +2036,16 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         modelGroupBox = QGroupBox("Model:")
 
         # self.modelComboBox = QLineEdit(self.model.model_name)
-        # self.modelComboBox.setAlignment(Qt.AlignCenter)
+        # self.modelComboBox.setAlignment(Qt.AlignmentFlag.AlignCenter)
         # self.modelComboBox.setReadOnly(True)
         
         self.modelComboBox = QComboBox()
-        self.modelComboBox.setSizeAdjustPolicy(QComboBox.AdjustToContents);
+        self.modelComboBox.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents);
         self.modelComboBox.addItems(self.model.default_model_names)
         self.modelComboBox.currentIndexChanged.connect(self.setModelName)
 
         # self.modelComboBox.setEditable(False)
-        # self.modelComboBox.lineEdit().setAlignment(Qt.AlignCenter)
+        # self.modelComboBox.lineEdit().setAlignment(Qt.AlignmentFlag.AlignCenter)
         # self.modelComboBox.lineEdit().setReadOnly(True)
         # self.modelComboBox.addItems(sorted(mw.col.models.allNames()))
         # self.modelComboBox.addItem("movies2anki")
@@ -2036,12 +2067,13 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
         self.deckComboBox = QComboBox()
         self.deckComboBox.setEditable(True)
-        self.deckComboBox.setMaxCount(5)
-        self.deckComboBox.setSizePolicy(QSizePolicy.Expanding,
-                QSizePolicy.Preferred)
-        self.deckComboBox.addItems(sorted(mw.col.decks.allNames()))
+        # self.deckComboBox.setMaxCount(5)
+        self.deckComboBox.setSizePolicy(QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Preferred)
+        names = [n.name for n in mw.col.decks.all_names_and_ids() if '::' not in n.name]
+        self.deckComboBox.addItems(names)
         self.deckComboBox.clearEditText()
-        self.deckComboBox.setInsertPolicy(QComboBox.NoInsert)
+        self.deckComboBox.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         
         hbox = QHBoxLayout()
         hbox.addWidget(self.deckComboBox)
@@ -2066,7 +2098,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
 def main():
     mainDialog = MainDialog(mw)
-    mainDialog.exec_()
+    mainDialog.exec()
 
 action = QAction("Generate Video Cards...", mw)
 action.setShortcut(QKeySequence("Ctrl+M"))

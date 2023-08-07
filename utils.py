@@ -2,7 +2,7 @@ import subprocess
 
 from subprocess import check_output
 
-from anki.utils import noBundledLibs
+from anki.utils import no_bundled_libs
 
 try:
     from aqt.sound import si
@@ -20,7 +20,7 @@ def secondsToTime(seconds, sep="."):
     return "%d%s%02d%s%02d.%03d" % (h, sep, m, sep, s, ms)
 
 def getSelectedAudioId(filepath, mpv_executable, ffprobe_executable):
-    with noBundledLibs():
+    with no_bundled_libs():
         track_list_count = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", filepath], shell=False, stdin=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, encoding='utf-8')
         for i in range(int(track_list_count)):
             track_type = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/type}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", filepath], shell=False, stdin=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, encoding='utf-8')

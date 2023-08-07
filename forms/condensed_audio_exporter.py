@@ -36,7 +36,7 @@ class Ui_Dialog(object):
         self.verticalLayout.addWidget(self.groupBox_2)
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
-        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_2.addItem(spacerItem)
         self.startBtn = QtWidgets.QPushButton(Dialog)
         self.startBtn.setObjectName("startBtn")
@@ -45,7 +45,7 @@ class Ui_Dialog(object):
 
         self.retranslateUi(Dialog)
         self.startBtn.clicked.connect(Dialog.accept)
-        QtCore.QMetaObject.connectSlotsByName(Dialog)
+        QtCore.QMetaObject.connectSlotsby_name(Dialog)
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
