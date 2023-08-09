@@ -1,5 +1,5 @@
 front_template = """
-<div class="media">[sound:{{Video}}]</div>
+<div>[sound:{{Video}}]</div>
 """
 
 css = """
@@ -12,32 +12,36 @@ css = """
 }
 
 .expression {
- font-size: 22px;
+ font-size: 20px;
+ margin-top: 15px;
+ margin-bottom: 10px;
 }
 
 .meaning {
  font-size: 18px;
  color: #000080;
+ margin-bottom: 10px;
 }
 
 .notes {
  font-size: 18px;
 }
-
-.media {
- margin: 2px;
-}
 """
 
 back_template = """
 {{FrontSide}}
+
+<hr id=answer>
+
 <div class="expression">{{Expression}}</div>
-<hr>
+
 {{#Meaning}}
 <div class="meaning">{{Meaning}}</div>
 {{/Meaning}}
-<div class="media">[sound:{{Audio}}]</div>
+
 <div class="notes">{{Notes}}</div>
+
+<div>[sound:{{Audio}}]</div>
 """
 
 #  ------------------------------------- #
