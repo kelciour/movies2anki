@@ -300,7 +300,7 @@ def queueExternal(path):
 
 def _stopPlayer():
     global p
-    
+
     if p != None and p.poll() is None:
         p.kill()
 
@@ -309,7 +309,7 @@ atexit.register(_stopPlayer)
 
 def clearExternalQueue():
     global _queueEraser
-    
+
     _stopPlayer()
     _queueEraser()
 
@@ -355,13 +355,13 @@ def selectVideoPlayer():
         else:
             with no_bundled_libs():
                 p = subprocess.Popen([mpv_executable, "--version"], startupinfo=info)
-        
+
         if p != None and p.poll() is None:
             p.kill()
     except OSError:
         if VLC_DIR != "":
             return
-        
+
         if is_win:
             VLC_DIR = r"C:\Program Files\VideoLAN\VLC\vlc.exe"
             if os.path.exists(VLC_DIR):
@@ -558,6 +558,9 @@ class MediaWorker(QThread):
 
             time_start, time_end = re.match(r"^.*?_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fld).groups()
 
+            time_start_seconds = timeToSeconds(time_start)
+            time_end_seconds = timeToSeconds(time_end)
+
             ss = secondsToTime(timeToSeconds(time_start), sep=":")
             se = secondsToTime(timeToSeconds(time_end), sep=":")
             t = timeToSeconds(time_end) - timeToSeconds(time_start)
@@ -573,7 +576,8 @@ class MediaWorker(QThread):
             # select the audio stream selected by mpv
             if note["Path"] not in map_ids:
                 with no_bundled_libs():
-                    audio_id = -1
+                    mpv_audio_id = -1
+                    ffmpeg_audio_id = -1
                     try:
                         cmd = [mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]]
                         logger.debug('check_output: {}'.format('Started'))
@@ -591,13 +595,15 @@ class MediaWorker(QThread):
                                 track_selected = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/selected}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8', timeout=3)
                                 if track_selected.strip() == 'yes':
                                     output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/ff-index}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8', timeout=3)
-                                    audio_id = int(output.strip()) - 1
+                                    # audio_id = int(output.strip()) - 1
+                                    mpv_audio_id = int(output.strip())
+                                    ffmpeg_audio_id = mpv_audio_id - 1
                                     break
                     except Exception as e:
                         print('EXCEPTION:', e)
                         if os.environ.get("ADDON_DEBUG"):
                             input('Press any key to continue...')
-                    if audio_id == -1:
+                    if mpv_audio_id == -1:
                         # select the last audio stream
                         cmd = [ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", note["Path"]]
                         logger.debug('ffprobe audio_streams: {}'.format('Started'))
@@ -606,16 +612,15 @@ class MediaWorker(QThread):
                         logger.debug('ffprobe audio_streams: {}, {}'.format('Finished', output))
                         json_data = json.loads(output)
                         for index, stream in enumerate(json_data["streams"]):
-                            audio_id = index
-                    # if audio_id < 0:
-                    #     audio_id = 0
+                            ffmpeg_audio_id = index
+                            mpv_audio_id = ffmpeg_audio_id + 1
+                    if ffmpeg_audio_id < 0:
+                        ffmpeg_audio_id = 0
 
-                map_ids[note["Path"]] = audio_id
-                logger.debug(f'audio_id: {audio_id}')
-            
+                map_ids[note["Path"]] = ffmpeg_audio_id
+                logger.debug(f'audio_id: {ffmpeg_audio_id}')
+
             audio_id = map_ids[note["Path"]]
-            if not ffmpeg_executable:
-                audio_id += 1
 
             # TODO
             video_height = 320
@@ -659,9 +664,10 @@ class MediaWorker(QThread):
                     cmd = [mpv_executable, note["Path"]]
                     # cmd += ["--include=%s" % self.mpvConf]
                     cmd += ["--start=%s" % ss, "--length=%s" % "{:.3f}".format(t)]
-                    cmd += ["--aid=%d" % audio_id]
+                    cmd += ["--aid=%d" % (audio_id + 1)]
                     cmd += ["--video=no"]
-                    cmd += ["--af=afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (af_st, af_d, "{:.3f}".format(af_to - af_d), af_d)]
+                    cmd += ["--no-ocopy-metadata"]
+                    cmd += ["--af=afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(time_start_seconds, af_d, time_end_seconds - af_d, af_d)]
                     cmd += ["--o=%s" % note["Audio"]]
 
                 logger.debug('export_audio: {}'.format('Started'))
@@ -693,6 +699,7 @@ class MediaWorker(QThread):
                     if af_params:
                         cmd += ["-af", af_params]
                     cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-ac", "2", "-vf", "scale=-2:%s" % video_height]
+                    cmd += ["-map_metadata", "-1"]
                     if note["Video"].endswith('.webm'):
                         cmd += config["video encoding settings (webm)"].split()
                     cmd += [note["Video"]]
@@ -701,8 +708,9 @@ class MediaWorker(QThread):
                     # cmd += ["--include=%s" % self.mpvConf]
                     cmd += ["--start=%s" % ss, "--length=%s" % "{:.3f}".format(t)]
                     cmd += ["--sub=no"]
-                    cmd += ["--aid=%d" % audio_id]
-                    cmd += ["--af=afade=t=in:st=%s:d=%s,afade=t=out:st=%s:d=%s" % (af_st, af_d, af_to - af_d, af_d)]
+                    cmd += ["--no-ocopy-metadata"]
+                    cmd += ["--aid=%d" % (audio_id + 1)]
+                    cmd += ["--af=afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(time_start_seconds, af_d, time_end_seconds - af_d, af_d)]
                     cmd += ["--vf-add=lavfi-scale=%s:%s" % (-2, video_height)]
                     if note["Video"].endswith('.webm'):
                         cmd += ["--ovc=libvpx-vp9"]
@@ -786,7 +794,7 @@ def update_media():
         mw.progressDialog.setWindowState(mw.progressDialog.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
         mw.progressDialog.activateWindow()
         return
-    
+
     data = []
     for model_name in ["movies2anki (add-on)", "movies2anki - subs2srs", "movies2anki - subs2srs (video)", "movies2anki - subs2srs (audio)"]:
         m = mw.col.models.by_name(model_name)
@@ -831,10 +839,6 @@ def update_media():
 
     if hasattr(mw, 'progressDialog'):
         del mw.progressDialog
-
-    print('ffmpeg', find_executable("ffmpeg"))
-    print('mpv', find_executable("mpv"))
-    print('mpv packaged', _packagedCmd(["mpv"])[0])
 
     mw.progressDialog = QProgressDialog()
     mw.progressDialog.setWindowIcon(QIcon(":/icons/anki.png"))
