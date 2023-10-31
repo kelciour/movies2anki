@@ -2201,7 +2201,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
         self.startSpinBox = QSpinBox()
         self.startSpinBox.setRange(-9999, 9999)
-        self.startSpinBox.setValue(self.model.getShiftStart())
+        self.startSpinBox.setValue(int(self.model.getShiftStart()))
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.startSpinBox)
@@ -2211,7 +2211,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
         self.endSpinBox = QSpinBox()
         self.endSpinBox.setRange(-9999, 9999)
-        self.endSpinBox.setValue(self.model.getShiftEnd())
+        self.endSpinBox.setValue(int(self.model.getShiftEnd()))
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.endSpinBox)
