@@ -1436,7 +1436,7 @@ class VideoWorker(QThread):
 
                     self.model.p = None
                     if ffmpeg_executable:
-                        cmd = [ffmpeg_executable, "-y", "-ss", snapshot_time, "-i", self.model.video_file, "-loglevel", "quiet", "-vf", "scale={}:{}".format(-2, self.model.video_height), "-vframes", "1", "-q:v", "2", os.path.join(mw.col.media.dir(), snapshot_filename)]
+                        cmd = [ffmpeg_executable, "-y", "-ss", snapshot_time, "-i", self.model.video_file, "-loglevel", "quiet", "-vf", "scale={}:{}:out_color_matrix=bt601:out_range=pc".format(-2, self.model.video_height), "-vframes", "1", "-qscale:v", "2", os.path.join(mw.col.media.dir(), snapshot_filename)]
                     else:
                         cmd = [mpv_executable, self.model.video_file]
                         # cmd += ["--include=%s" % self.mpvConf]
