@@ -698,7 +698,8 @@ class MediaWorker(QThread):
                     cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
                     if af_params:
                         cmd += ["-af", af_params]
-                    cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-ac", "2", "-vf", "scale=-2:%s" % video_height]
+                    cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-ac", "2", "-vf", "scale=-2:%s,setsar=1" % video_height]
+                    cmd += ["-pix_fmt", "yuv420p"]
                     cmd += ["-map_metadata", "-1"]
                     if note["Video"].endswith('.webm'):
                         cmd += config["video encoding settings (webm)"].split()
