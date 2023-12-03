@@ -659,7 +659,10 @@ class MediaWorker(QThread):
                     cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
                     if af_params:
                         cmd += ["-af", af_params]
-                    cmd += ["-map", "0:a:{}".format(audio_id), note["Audio"]]
+                    cmd += ["-sn"]
+                    cmd += ["-map_metadata", "-1"]
+                    cmd += ["-map", "0:a:{}".format(audio_id)]
+                    cmd += [note["Audio"]]
                 else:
                     cmd = [mpv_executable, note["Path"]]
                     # cmd += ["--include=%s" % self.mpvConf]
@@ -704,6 +707,8 @@ class MediaWorker(QThread):
                     cmd += ["-map_metadata", "-1"]
                     if note["Video"].endswith('.webm'):
                         cmd += config["video encoding settings (webm)"].split()
+                    else:
+                        cmd += ['-movflags', '+faststart']
                     cmd += [note["Video"]]
                 else:
                     cmd = [mpv_executable, note["Path"]]
