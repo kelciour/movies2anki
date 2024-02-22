@@ -20,7 +20,10 @@ except ImportError:
 
 from .utils import timeToSeconds, secondsToTime, getSelectedAudioId
 
-from .forms import condensed_audio_exporter
+try:
+    from .forms import condensed_audio_exporter_qt6 as condensed_audio_exporter
+except:
+    from .forms import condensed_audio_exporter_qt5 as condensed_audio_exporter
 
 if is_mac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
