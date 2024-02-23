@@ -3,6 +3,7 @@
 import subprocess, sys, json, time, re, os, atexit
 import logging
 import tempfile
+import traceback
 
 try:
     from aqt.sound import play, _packagedCmd, si
@@ -523,12 +524,13 @@ class MediaWorker(QThread):
     updateNote = pyqtSignal(str, str, str)
     jobFinished = pyqtSignal(float)
 
-    def __init__(self, data):
+    def __init__(self, data, map_ids):
         QThread.__init__(self)
 
         self.data = data
         self.canceled = False
         self.fp = None
+        self.map_ids = map_ids
 
         if os.environ.get("ADDON_DEBUG"):
             logger.setLevel(logging.DEBUG)
@@ -546,8 +548,8 @@ class MediaWorker(QThread):
 
         logger.debug('mpv_executable: {}'.format(mpv_executable))
 
-        map_ids = {}
         config = mw.addonManager.getConfig(__name__)
+
         for idx, note in enumerate(self.data):
             if self.canceled:
                 break
@@ -573,54 +575,7 @@ class MediaWorker(QThread):
             else:
                 default_af_params = ""
 
-            # select the audio stream selected by mpv
-            if note["Path"] not in map_ids:
-                with no_bundled_libs():
-                    mpv_audio_id = -1
-                    ffmpeg_audio_id = -1
-                    try:
-                        cmd = [mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]]
-                        logger.debug('check_output: {}'.format('Started'))
-                        logger.debug('check_output: {}'.format(join_and_add_double_quotes(cmd)))
-                        with tempfile.TemporaryFile() as tmpfile:
-                            subprocess.check_call(cmd, startupinfo=info, encoding='utf-8', stdout=tmpfile, timeout=5)
-                            tmpfile.seek(0)
-                            track_list_count = tmpfile.read().decode('utf-8').strip()
-                        logger.debug('check_output: {}, {}'.format('Finished', track_list_count))
-                        track_list_count = track_list_count.replace('term-msg:', '').replace('[term-msg]', '')
-                        track_list_count = int(track_list_count)
-                        for i in range(track_list_count):
-                            track_type = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/type}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8', timeout=3)
-                            if track_type.strip() == 'audio':
-                                track_selected = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/selected}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8', timeout=3)
-                                if track_selected.strip() == 'yes':
-                                    output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/ff-index}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", note["Path"]], startupinfo=info, encoding='utf-8', timeout=3)
-                                    # audio_id = int(output.strip()) - 1
-                                    mpv_audio_id = int(output.strip())
-                                    ffmpeg_audio_id = mpv_audio_id - 1
-                                    break
-                    except Exception as e:
-                        print('EXCEPTION:', e)
-                        if os.environ.get("ADDON_DEBUG"):
-                            input('Press any key to continue...')
-                    if mpv_audio_id == -1:
-                        # select the last audio stream
-                        cmd = [ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", note["Path"]]
-                        logger.debug('ffprobe audio_streams: {}'.format('Started'))
-                        logger.debug('ffprobe audio_streams: {}'.format(join_and_add_double_quotes(cmd)))
-                        output = check_output(cmd, startupinfo=info, encoding='utf-8')
-                        logger.debug('ffprobe audio_streams: {}, {}'.format('Finished', output))
-                        json_data = json.loads(output)
-                        for index, stream in enumerate(json_data["streams"]):
-                            ffmpeg_audio_id = index
-                            mpv_audio_id = ffmpeg_audio_id + 1
-                    if ffmpeg_audio_id < 0:
-                        ffmpeg_audio_id = 0
-
-                map_ids[note["Path"]] = ffmpeg_audio_id
-                logger.debug(f'audio_id: {ffmpeg_audio_id}')
-
-            audio_id = map_ids[note["Path"]]
+            audio_id = self.map_ids[note["Path"]]
 
             # TODO
             video_height = 320
@@ -760,7 +715,10 @@ class MediaWorker(QThread):
             self.jobFinished.emit(time_diff)
 
 def cancelProgressDialog():
-    mw.worker.cancel()
+    global is_cancel
+    is_cancel = True
+    if hasattr(mw, 'worker'):
+        mw.worker.cancel()
 
 def setProgress(progress):
     logger.debug('progress: {:.2f}%'.format(progress))
@@ -781,6 +739,82 @@ def finishProgressDialog(time_diff):
     seconds = int(time_diff % 60)
     message = "Processing completed in %s minutes %s seconds." % (minutes, seconds)
     QMessageBox.information(mw, "movies2anki", message)
+
+class AudioInfo(QDialog):
+
+    def __init__(self, map_ids, map_data, parent=None):
+        super(AudioInfo, self).__init__(parent)
+
+        self.map_data = map_data
+        self.map_ids = map_ids
+        self.initUI()
+
+    def initUI(self):
+        okButton = QPushButton("OK")
+        okButton.clicked.connect(self.ok)
+
+        vbox = QVBoxLayout()
+        hbox = QHBoxLayout()
+
+        grid = QGridLayout()
+        grid.setSpacing(10)
+
+        # grid.addWidget(reviewEdit, 1, 1, 1, 3)
+        hbox.addStretch(1)
+        hbox.addWidget(okButton)
+
+        for idx, video_path in enumerate(self.map_data):
+            video_filename = os.path.basename(video_path)
+            audio_tracks = self.map_data[video_path]
+
+            i_selected = 0
+            btn_label = QLabel(video_filename)
+            btn_cbox = QComboBox()
+            # btn_cbox.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+            for i in audio_tracks:
+                title = audio_tracks[i]['title']
+                if title == '(unavailable)':
+                    title = ''
+                lang = audio_tracks[i]['lang']
+                if not lang:
+                    lang = '???'
+                print('i:', i)
+                if audio_tracks[i]['selected'] == 'yes':
+                    i_selected = i - 1
+                    print('selected:', i_selected)
+                item_title = '{}: {}'.format(i, lang)
+                if title:
+                    item_title += ' ({})'.format(title)
+                btn_cbox.addItem(item_title)
+            btn_cbox.setCurrentIndex(i_selected)
+            btn_cbox.currentIndexChanged.connect(lambda i: self.setAudioStream(video_path, i))
+            grid.addWidget(btn_label, idx + 1, 1)
+            grid.addWidget(btn_cbox, idx + 1, 2)
+
+        grid.setColumnStretch(1,1)
+        grid.setRowMinimumHeight(len(self.map_data)+1, 30)
+
+        vbox.addLayout(grid)
+        vbox.addLayout(hbox)
+
+        self.setLayout(vbox)
+
+        self.setWindowTitle('[movies2anki] Select Audio Streams')
+        self.setModal(True)
+
+        # self.setMinimumSize(400, 300)
+        self.adjustSize()
+        self.setMinimumWidth(450)
+
+    def setAudioStream(self, video_path, i):
+        print('setAudioStream:', video_path, i)
+        self.map_ids[video_path] = i
+
+    def ok(self):
+        self.done(1)
+
+    def cancel(self):
+        self.done(0)
 
 def update_media():
     global ffmpeg_executable
@@ -849,25 +883,151 @@ def update_media():
 
     mw.progressDialog = QProgressDialog()
     mw.progressDialog.setWindowIcon(QIcon(":/icons/anki.png"))
-    mw.progressDialog.setWindowTitle("Generating Media")
     flags = mw.progressDialog.windowFlags()
     flags ^= Qt.WindowType.WindowMinimizeButtonHint
     mw.progressDialog.setWindowFlags(flags)
     # mw.progressDialog.setFixedSize(300, mw.progressDialog.height())
-    mw.progressDialog.setMinimumWidth(300)
+    mw.progressDialog.setMinimumWidth(450)
     mw.progressDialog.setFixedHeight(mw.progressDialog.height())
     mw.progressDialog.setCancelButtonText("Cancel")
     mw.progressDialog.setMinimumDuration(0)
+    mw.progressDialog.canceled.connect(cancelProgressDialog)
     mw.progress_bar = QProgressBar(mw.progressDialog)
     mw.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
     mw.progressDialog.setBar(mw.progress_bar)
+    mw.progressDialog.setModal(True)
+    mw.progressDialog.show()
 
-    mw.worker = MediaWorker(data)
+    map_ids = {}
+    map_data = {}
+
+    is_multi_audio_streams = False
+
+    mw.progressDialog.setWindowTitle("[movies2anki] Processing Audio Streams...")
+
+    global is_cancel
+    is_cancel = False
+
+    # select the audio stream selected by mpv
+    videos = []
+    for idx, note in enumerate(data):
+        if note["Path"] in videos:
+            continue
+        videos.append(note["Path"])
+
+    for video_path in videos:
+        QApplication.instance().processEvents()
+        if is_cancel:
+            break
+
+        video_filename = os.path.basename(video_path)
+        mw.progressDialog.setLabelText(video_filename)
+
+        mw.progressDialog.setValue((idx * 1.0 / len(videos)) * 100)
+
+        ffmpeg_audio_id = -1
+        with no_bundled_libs():
+            audio_tracks = {}
+            try:
+                cmd = [mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", video_path]
+                logger.debug('check_output: {}'.format('Started'))
+                logger.debug('check_output: {}'.format(join_and_add_double_quotes(cmd)))
+                QApplication.instance().processEvents()
+                if is_cancel:
+                    return
+                with tempfile.TemporaryFile() as tmpfile:
+                    subprocess.check_call(cmd, startupinfo=info, encoding='utf-8', stdout=tmpfile, timeout=5)
+                    tmpfile.seek(0)
+                    track_list_count = tmpfile.read().decode('utf-8').strip()
+                logger.debug('check_output: {}, {}'.format('Finished', track_list_count))
+                track_list_count = track_list_count.replace('term-msg:', '').replace('[term-msg]', '')
+                track_list_count = int(track_list_count)
+                for i in range(track_list_count):
+                    QApplication.instance().processEvents()
+                    if is_cancel:
+                        return
+                    track_type = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/type}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", video_path], startupinfo=info, encoding='utf-8', timeout=3)
+                    if track_type.strip() == 'audio':
+                        audio_tracks[i] = {
+                            'title': '',
+                            'lang': '',
+                            'selected': '',
+                            'ffmpeg-index': ''
+                        }
+                for idx, i in enumerate(audio_tracks):
+                    QApplication.instance().processEvents()
+                    if is_cancel:
+                        return
+                    output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/selected}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", video_path], startupinfo=info, encoding='utf-8', timeout=3)
+                    audio_tracks[i]['selected'] = output.strip()
+                    QApplication.instance().processEvents()
+                    output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/title}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", video_path], startupinfo=info, encoding='utf-8', timeout=3)
+                    audio_tracks[i]['title'] = output.strip()
+                    QApplication.instance().processEvents()
+                    output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/lang}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", video_path], startupinfo=info, encoding='utf-8', timeout=3)
+                    audio_tracks[i]['lang'] = output.strip()
+                    QApplication.instance().processEvents()
+                    output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/ff-index}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", video_path], startupinfo=info, encoding='utf-8', timeout=3)
+                    ffmpeg_audio_id = idx
+                    audio_tracks[i]['ffmpeg-index'] = idx
+                if len(audio_tracks) > 1:
+                    is_multi_audio_streams = True
+            except Exception as e:
+                print(traceback.format_exc())
+                if os.environ.get("ADDON_DEBUG"):
+                    input('Press any key to continue...')
+            if ffmpeg_audio_id == -1:
+                # select the last audio stream
+                audio_tracks = {}
+                cmd = [ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_path]
+                logger.debug('ffprobe audio_streams: {}'.format('Started'))
+                logger.debug('ffprobe audio_streams: {}'.format(join_and_add_double_quotes(cmd)))
+                QApplication.instance().processEvents()
+                if is_cancel:
+                    return
+                output = check_output(cmd, startupinfo=info, encoding='utf-8')
+                logger.debug('ffprobe audio_streams: {}, {}'.format('Finished', output))
+                json_data = json.loads(output)
+                for idx, stream in enumerate(json_data["streams"]):
+                    ffmpeg_audio_id = idx
+                    stream_tags = stream.get('tags', {})
+                    audio_tracks[idx] = {
+                        'title': stream_tags.get('title', ''),
+                        'lang': stream_tags.get('language', ''),
+                        'selected': '',
+                        'ffmpeg-index': stream["index"]
+                    }
+                if len(json_data["streams"]):
+                    is_multi_audio_streams = True
+        if ffmpeg_audio_id < 0:
+            ffmpeg_audio_id = 0
+
+        map_ids[video_path] = ffmpeg_audio_id
+        map_data[video_path] = audio_tracks
+        logger.debug(f'audio_id: {ffmpeg_audio_id}')
+
+    if is_cancel:
+        return
+
+    mw.progressDialog.setValue(100)
+    mw.progressDialog.setLabelText('')
+
+    QApplication.instance().processEvents()
+
+    if is_multi_audio_streams:
+        AudioInfo(map_ids, map_data).exec_()
+
+    mw.progressDialog.setWindowTitle("[movies2anki] Generating Media...")
+    mw.progressDialog.setValue(0)
+    mw.progressDialog.setModal(False)
+
+    QApplication.instance().processEvents()
+
+    mw.worker = MediaWorker(data, map_ids)
     mw.worker.updateProgress.connect(setProgress)
     mw.worker.updateProgressText.connect(setProgressText)
     mw.worker.updateNote.connect(saveNote)
     mw.worker.jobFinished.connect(finishProgressDialog)
-    mw.progressDialog.canceled.connect(cancelProgressDialog)
     mw.worker.start()
 
 def stopWorker():
