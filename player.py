@@ -657,6 +657,8 @@ class MediaWorker(QThread):
                     if af_params:
                         cmd += ["-af", af_params]
                     cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-ac", "2", "-vf", "scale=-2:%s,setsar=1" % video_height]
+                    cmd += ["-c:v", "libx264"]
+                    cmd += ["-profile:v", "main", "-level:v", "3.1"]
                     cmd += ["-pix_fmt", "yuv420p"]
                     cmd += ["-sn"]
                     cmd += ["-map_metadata", "-1"]
