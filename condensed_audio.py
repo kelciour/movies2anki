@@ -54,10 +54,12 @@ def updateNotes(browser, nids):
     if output_directory:
         frm.outputDir.setText(output_directory)
     else:
-        output_directory = QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation)
+        output_directory = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.DocumentsLocation
+        )
     frm.outputDirBtn.clicked.connect(showOutputDirectoryDialog)
 
-    if not d.exec_():
+    if not d.exec():
         return
 
     output_directory = frm.outputDir.text().strip()
