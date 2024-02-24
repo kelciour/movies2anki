@@ -192,7 +192,7 @@ def is_not_sdh_subtitle(sub):
 
     return True
 
-def filter_subtitles(subs, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases):
+def filter_subtitles(subs, is_ignore_SDH, is_gap_phrases):
     subs2 = []
     for sub_start, sub_end, sub_text in subs:
         sub_text = sub_text.strip()
@@ -207,7 +207,11 @@ def filter_subtitles(subs, is_ignore_SDH, join_lines_separator, join_sentences_s
             subs2.append((sub_start, sub_end, sub_text))
     return subs2
 
-def format_subtitles(subs, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases):
+def format_subtitles(subs, is_ignore_SDH, is_gap_phrases):
+    config = mw.addonManager.getConfig(__name__)
+    join_lines_separator = config["join lines with"]
+    join_sentences_separator = config["join sentences with"]
+
     subs2 = []
     for sub_start, sub_end, sub_text in subs:
         sub_text = re.sub(r"{\\\w+\d*}", "", sub_text)
@@ -234,7 +238,11 @@ def format_subtitles(subs, is_ignore_SDH, join_lines_separator, join_sentences_s
         subs2.append((sub_start, sub_end, sub_content))
     return subs2
 
-def read_subtitles(content, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases):
+def read_subtitles(content, is_ignore_SDH, is_gap_phrases):
+    config = mw.addonManager.getConfig(__name__)
+    join_lines_separator = config["join lines with"]
+    join_sentences_separator = config["join sentences with"]
+
     en_subs = []
 
     content = re.sub(r'(?s)^WEBVTT.*?\n\n', '', content).strip()
@@ -286,7 +294,10 @@ def read_subtitles(content, is_ignore_SDH, join_lines_separator, join_sentences_
 
 # Формат субтитров
 # [(start_time, end_time, subtitle), (), ...], [(...)], ...
-def join_lines_within_subs(subs, join_sentences_separator):
+def join_lines_within_subs(subs):
+    config = mw.addonManager.getConfig(__name__)
+    join_sentences_separator = config["join sentences with"]
+
     subs_joined = []
 
     global duration_longest_phrase
@@ -351,8 +362,9 @@ def remove_tags(sub):
 
     return sub
 
-def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_with, join_questions_with_answers, join_sentences_separator, join_lines_separator, is_gap_phrases, is_split_long_phrases):
-    subs = []
+def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_with, join_questions_with_answers, is_gap_phrases, is_split_long_phrases):
+    config = mw.addonManager.getConfig(__name__)
+    join_lines_separator = config["join lines with"]
 
     # if phrases_duration_limit == 0 or not is_split_long_phrases:
     #     sentence_duration_limit = 15
@@ -361,6 +373,7 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
 
     sentence_duration_limit = 25
 
+    subs = []
     for sub in en_subs:
         sub_start = sub[0]
         sub_end = sub[1]
@@ -417,7 +430,10 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
 
     return subs
 
-def join_questions(en_subs, ru_subs, join_sentences_separator, is_gap_phrases):
+def join_questions(en_subs, ru_subs, is_gap_phrases):
+    config = mw.addonManager.getConfig(__name__)
+    join_sentences_separator = config["join sentences with"]
+
     subs = []
 
     sentence_duration_limit = 15
@@ -508,7 +524,7 @@ def convert_into_sentences_source(en_subs, phrases_duration_limit):
 
     return subs
 
-def convert_into_phrases(en_subs, ru_subs, time_delta, phrases_duration_limit, is_split_long_phrases, join_sentences_separator, is_gap_phrases):
+def convert_into_phrases(en_subs, ru_subs, time_delta, phrases_duration_limit, is_split_long_phrases, is_gap_phrases):
     subs = []
     subs2 = []
 
@@ -538,12 +554,16 @@ def convert_into_phrases(en_subs, ru_subs, time_delta, phrases_duration_limit, i
 
     subs_with_line_timings = subs
 
-    subs = join_lines_within_subs(subs, join_sentences_separator)
-    subs2 = join_lines_within_subs(subs2, join_sentences_separator)
+    subs = join_lines_within_subs(subs)
+    subs2 = join_lines_within_subs(subs2)
     return (subs, subs2, subs_with_line_timings)
 
 # TODO
-def sync_subtitles(en_subs, ru_subs, join_sentences_separator, join_lines_that_end_with, join_lines_separator):
+def sync_subtitles(en_subs, ru_subs, join_lines_that_end_with):
+    config = mw.addonManager.getConfig(__name__)
+    join_lines_separator = config["join lines with"]
+    join_sentences_separator = config["join sentences with"]
+
     subs = []
     for en_start, en_end, en_text in en_subs:
         subs.append({
@@ -641,14 +661,14 @@ def sync_subtitles(en_subs, ru_subs, join_sentences_separator, join_lines_that_e
         start = sub['start']
         end = sub['end']
         maxlen = max(maxlen, end - start)
-        content = ' '.join(sub['ru'])
-        content = content.replace('<br>', ' ')
+        content = join_lines_separator.join(sub['ru'])
+        # content = content.replace('<br>', ' ')
         content = re.sub(r'([\.\?\!]) - ', r'\1<br>- ', content)
         content = re.sub(r'(<br>\s*<br>)', '<br>', content)
         # print('RU:', content)
         ru_subs.append([start, end, content])
 
-        en_content = ' '.join(sub['en'])
+        # en_content = ' '.join(sub['en'])
         # print('{:.0f}'.format(end-start))
         # print('EN:', en_content)
         # print('RU:', content)
@@ -657,7 +677,9 @@ def sync_subtitles(en_subs, ru_subs, join_sentences_separator, join_lines_that_e
     for sub in subs:
         start = sub['start']
         end = sub['end']
-        content = ' '.join(sub['en'])
+        content = join_lines_separator.join(sub['en'])
+        content = re.sub(r'([\.\?\!]) - ', r'\1<br>- ', content)
+        content = re.sub(r'(<br>\s*<br>)', '<br>', content)
         en_subs.append([start, end, content])
     return (en_subs, ru_subs)
 
@@ -866,8 +888,6 @@ class Model(object):
 
         # self.join_lines_that_end_with = r"\.\.\. , → [\u4e00-\u9fef]"
         self.join_lines_that_end_with = r"\.\.\. , →"
-        self.join_lines_separator = " "
-        self.join_sentences_separator = "<br>"
         self.join_questions_with_answers = False
 
     def load_settings(self):
@@ -899,8 +919,6 @@ class Model(object):
         # self.is_add_dir_to_media_path = config.getboolean('main', 'is_add_dir_to_media_path')
 
         self.join_lines_that_end_with = config.get('main', 'join_lines_that_end_with').encode('utf-8').decode('unicode-escape').strip()
-        self.join_lines_separator = config.get('main', 'join_lines_separator').replace("_", " ")
-        self.join_sentences_separator = config.get('main', 'join_sentences_separator').replace("_", " ")
         self.join_questions_with_answers = config.getboolean('main', 'join_questions_with_answers')
 
         value = [e.strip() for e in config.get('main', 'recent_deck_names').split(',')]
@@ -930,8 +948,6 @@ class Model(object):
         # config.set('main', 'is_add_dir_to_media_path', str(self.is_add_dir_to_media_path))
 
         config.set('main', 'join_lines_that_end_with', self.join_lines_that_end_with.encode('unicode-escape').decode('utf-8'))
-        config.set('main', 'join_lines_separator', self.join_lines_separator.replace(" ", "_"))
-        config.set('main', 'join_sentences_separator', self.join_sentences_separator.replace(" ", "_"))
         config.set('main', 'join_questions_with_answers', str(self.join_questions_with_answers))
 
         config.set('main', 'recent_deck_names', ",".join(reversed(self.recent_deck_names)))
@@ -968,7 +984,7 @@ class Model(object):
         self.sub_encoding = None
         return file_content.decode()
 
-    def load_subtitle(self, filename, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases):
+    def load_subtitle(self, filename, is_ignore_SDH, is_gap_phrases):
         if len(filename) == 0:
             return []
 
@@ -984,9 +1000,9 @@ class Model(object):
         for line in subs:
             subs2.append((line.start / 1000, line.end / 1000, line.text))
 
-        subs2 = format_subtitles(subs2, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases)
+        subs2 = format_subtitles(subs2, is_ignore_SDH, is_gap_phrases)
 
-        subs2 = filter_subtitles(subs2, is_ignore_SDH, join_lines_separator, join_sentences_separator, is_gap_phrases)
+        subs2 = filter_subtitles(subs2, is_ignore_SDH, is_gap_phrases)
 
         return subs2
 
@@ -1213,18 +1229,18 @@ class Model(object):
 
         # Загружаем английские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
         # print "Loading English subtitles..."
-        en_subs = self.load_subtitle(self.en_srt, self.is_ignore_sdh_subtitle, self.join_lines_separator, self.join_sentences_separator, self.is_gap_phrases)
+        en_subs = self.load_subtitle(self.en_srt, self.is_ignore_sdh_subtitle, self.is_gap_phrases)
         # print "Encoding: %s" % self.sub_encoding
         # print "English subtitles: %s" % len(en_subs)
 
         # Разбиваем субтитры на предложения
-        self.en_subs_sentences = convert_into_sentences(en_subs, self.phrases_duration_limit, self.join_lines_that_end_with, self.join_questions_with_answers, self.join_sentences_separator, self.join_lines_separator, self.is_gap_phrases, self.is_split_long_phrases)
+        self.en_subs_sentences = convert_into_sentences(en_subs, self.phrases_duration_limit, self.join_lines_that_end_with, self.join_questions_with_answers, self.is_gap_phrases, self.is_split_long_phrases)
         # print "English sentences: %s" % len(self.en_subs_sentences)
 
 
         # Загружаем русские субтитры в формате [(start_time, end_time, subtitle), (...), ...]
         # print "Loading Russian subtitles..."
-        ru_subs = self.load_subtitle(self.ru_srt, self.is_ignore_sdh_subtitle, self.join_lines_separator, self.join_sentences_separator, is_gap_phrases=True)
+        ru_subs = self.load_subtitle(self.ru_srt, self.is_ignore_sdh_subtitle, is_gap_phrases=True)
         # print "Encoding: %s" % self.sub_encoding
         # print "Russian subtitles: %s" % len(ru_subs)
 
@@ -1232,16 +1248,16 @@ class Model(object):
         self.num_en_subs = len(en_subs)
         self.num_ru_subs = len(ru_subs)
 
-        self.ru_subs_sentences = convert_into_sentences(ru_subs, self.phrases_duration_limit, self.join_lines_that_end_with, self.join_questions_with_answers, self.join_sentences_separator, self.join_lines_separator, self.is_gap_phrases, self.is_split_long_phrases)
+        self.ru_subs_sentences = convert_into_sentences(ru_subs, self.phrases_duration_limit, self.join_lines_that_end_with, self.join_questions_with_answers, self.is_gap_phrases, self.is_split_long_phrases)
 
         # Синхронизируем русские субтитры с получившимися английскими субтитрами
         # print "Syncing Russian subtitles with English phrases..."
-        self.en_subs_phrases, self.ru_subs_phrases = sync_subtitles(self.en_subs_sentences, self.ru_subs_sentences, self.join_sentences_separator, self.join_lines_that_end_with, self.join_lines_separator)
+        self.en_subs_phrases, self.ru_subs_phrases = sync_subtitles(self.en_subs_sentences, self.ru_subs_sentences, self.join_lines_that_end_with)
 
-        self.en_subs_phrases, self.ru_subs_phrases = join_questions(self.en_subs_phrases, self.ru_subs_phrases, self.join_sentences_separator, self.is_gap_phrases)
+        self.en_subs_phrases, self.ru_subs_phrases = join_questions(self.en_subs_phrases, self.ru_subs_phrases, self.is_gap_phrases)
 
         # Разбиваем субтитры на фразы
-        self.en_subs_phrases, self.ru_subs_phrases, self.subs_with_line_timings = convert_into_phrases(self.en_subs_phrases, self.ru_subs_phrases, self.time_delta, self.phrases_duration_limit, self.is_split_long_phrases, self.join_sentences_separator, self.is_gap_phrases)
+        self.en_subs_phrases, self.ru_subs_phrases, self.subs_with_line_timings = convert_into_phrases(self.en_subs_phrases, self.ru_subs_phrases, self.time_delta, self.phrases_duration_limit, self.is_split_long_phrases, self.is_gap_phrases)
         # print "English phrases: %s" % len(self.en_subs_phrases)
 
         self.num_phrases = len(self.en_subs_phrases)
