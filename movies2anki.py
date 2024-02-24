@@ -35,8 +35,6 @@ import subprocess
 from . import glob
 from . import styles
 
-from . import configparser
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
 
 import pysubs2
@@ -834,8 +832,6 @@ def create_or_clean_collection_dir(directory):
 
 class Model(object):
     def __init__(self):
-        self.config_file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.ini")
-
         self.video_file = ""
         self.audio_id = 0
         self.deck_name = ""
@@ -893,67 +889,78 @@ class Model(object):
     def load_settings(self):
         self.default_settings()
 
-        if not os.path.isfile(self.config_file_name):
-            return
+        self.config = mw.addonManager.getConfig(__name__)
 
-        config = configparser.SafeConfigParser()
-        config.read(self.config_file_name, encoding='utf-8')
+        if "#input_directory" in self.config:
+            self.input_directory = self.config["#input_directory"]
 
-        self.input_directory = config.get('main', 'input_directory')
         # self.output_directory = config.get('main', 'output_directory')
         # self.video_width = config.getint('main', 'video_width')
         # self.video_height = config.getint('main', 'video_height')
-        self.shift_start = config.getfloat('main', 'pad_start')
-        self.shift_end = config.getfloat('main', 'pad_end')
-        self.time_delta = config.getfloat('main', 'gap_between_phrases')
-        self.is_split_long_phrases = config.getboolean('main', 'is_split_long_phrases')
-        self.is_gap_phrases = config.getboolean('main', 'is_gap_phrases')
-        self.phrases_duration_limit = config.getint('main', 'phrases_duration_limit')
-        self.mode = config.get('main', 'mode')
-        self.is_write_output_subtitles = config.getboolean('main', 'is_write_output_subtitles')
-        # self.is_write_output_subtitles_for_clips = config.getboolean('main', 'is_write_output_subtitles_for_clips')
-        # self.is_create_clips_with_softsub = config.getboolean('main', 'is_create_clips_with_softsub')
-        # self.is_create_clips_with_hardsub = config.getboolean('main', 'is_create_clips_with_hardsub')
-        # self.hardsub_style = config.get('main', 'hardsub_style')
-        self.is_ignore_sdh_subtitle = config.getboolean('main', 'is_ignore_sdh_subtitle')
-        # self.is_add_dir_to_media_path = config.getboolean('main', 'is_add_dir_to_media_path')
 
-        self.join_lines_that_end_with = config.get('main', 'join_lines_that_end_with').encode('utf-8').decode('unicode-escape').strip()
-        self.join_questions_with_answers = config.getboolean('main', 'join_questions_with_answers')
-
-        value = [e.strip() for e in config.get('main', 'recent_deck_names').split(',')]
-        if len(value) != 0:
-            self.recent_deck_names.extendleft(value)
+        if "#shift_start" in self.config:
+            self.shift_start = self.config["#shift_start"]
+        if "#shift_end" in self.config:
+            self.shift_end = self.config["#shift_end"]
+        if "#time_delta" in self.config:
+            self.time_delta = self.config["#time_delta"]
+        if "#is_split_long_phrases" in self.config:
+            self.is_split_long_phrases = self.config["#is_split_long_phrases"]
+        if "#is_gap_phrases" in self.config:
+            self.is_gap_phrases = self.config["#is_gap_phrases"]
+        if "#phrases_duration_limit" in self.config:
+            self.phrases_duration_limit = self.config["#phrases_duration_limit"]
+        if "#mode" in self.config:
+            self.mode = self.config["#mode"]
+        if "#is_write_output_subtitles" in self.config:
+            self.is_write_output_subtitles = self.config["#is_write_output_subtitles"]
+        # if "#is_write_output_subtitles_for_clips" in self.config:
+        #     self.is_write_output_subtitles_for_clips = self.config["#is_write_output_subtitles_for_clips"]
+        # if "#is_create_clips_with_softsub" in self.config:
+        #     self.is_create_clips_with_softsub = self.config["#is_create_clips_with_softsub"]
+        # if "#is_create_clips_with_hardsub" in self.config:
+        #     self.is_create_clips_with_hardsub = self.config["#is_create_clips_with_hardsub"]
+        # if "#hardsub_style" in self.config:
+        #     self.hardsub_style = self.config["#hardsub_style"]
+        if "#is_ignore_sdh_subtitle" in self.config:
+            self.is_ignore_sdh_subtitle = self.config["#is_ignore_sdh_subtitle"]
+        # if "#'is_add_dir_to_media_path" in self.config:
+        #     self.'is_add_dir_to_media_path = self.config["#'is_add_dir_to_media_path"]
+        if "#join_lines_that_end_with" in self.config:
+            self.join_lines_that_end_with = self.config["#join_lines_that_end_with"]
+        if "#join_questions_with_answers" in self.config:
+            self.join_questions_with_answers = self.config["#join_questions_with_answers"]
+        if "#recent_deck_names" in self.config:
+            value = [e.strip() for e in self.config["#recent_deck_names"].split(',')]
+            if len(value) != 0:
+                self.recent_deck_names.extendleft(value)
 
     def save_settings(self):
-        config = configparser.SafeConfigParser()
-        config.add_section('main')
-        config.set('main', 'input_directory', self.input_directory)
-        # config.set('main', 'output_directory', self.output_directory.encode('utf-8'))
-        # config.set('main', 'video_width', str(self.video_width))
-        # config.set('main', 'video_height', str(self.video_height))
-        config.set('main', 'pad_start', str(self.shift_start))
-        config.set('main', 'pad_end', str(self.shift_end))
-        config.set('main', 'gap_between_phrases', str(self.time_delta))
-        config.set('main', 'is_split_long_phrases', str(self.is_split_long_phrases))
-        config.set('main', 'is_gap_phrases', str(self.is_gap_phrases))
-        config.set('main', 'phrases_duration_limit', str(self.phrases_duration_limit))
-        config.set('main', 'mode', self.mode)
-        config.set('main', 'is_write_output_subtitles', str(self.is_write_output_subtitles))
-        # config.set('main', 'is_write_output_subtitles_for_clips', str(self.is_write_output_subtitles_for_clips))
-        # config.set('main', 'is_create_clips_with_softsub', str(self.is_create_clips_with_softsub))
-        # config.set('main', 'is_create_clips_with_hardsub', str(self.is_create_clips_with_hardsub))
-        # config.set('main', 'hardsub_style', self.hardsub_style.encode('utf-8'))
-        config.set('main', 'is_ignore_sdh_subtitle', str(self.is_ignore_sdh_subtitle))
-        # config.set('main', 'is_add_dir_to_media_path', str(self.is_add_dir_to_media_path))
+        self.config['#input_directory'] = self.input_directory
+        # self.config['#output_directory'] = self.output_directory.encode('utf-8')
+        # self.config['#video_width'] = str(self.video_width)
+        # self.config['#video_height'] = str(self.video_height)
+        self.config['#shift_start'] = self.shift_start
+        self.config['#shift_end'] = self.shift_end
+        self.config['#time_delta'] = self.time_delta
+        self.config['#is_split_long_phrases'] = self.is_split_long_phrases
+        self.config['#is_gap_phrases'] = self.is_gap_phrases
+        self.config['#phrases_duration_limit'] = self.phrases_duration_limit
+        self.config['#mode'] = self.mode
+        self.config['#is_write_output_subtitles'] = self.is_write_output_subtitles
+        # self.config['#is_write_output_subtitles_for_clips'] = str(self.is_write_output_subtitles_for_clips)
+        # self.config['#is_create_clips_with_softsub'] = str(self.is_create_clips_with_softsub)
+        # self.config['#is_create_clips_with_hardsub'] = str(self.is_create_clips_with_hardsub)
+        # self.config['#hardsub_style'] = self.hardsub_style.encode('utf-8')
+        self.config['#is_ignore_sdh_subtitle'] = self.is_ignore_sdh_subtitle
+        # self.config['#is_add_dir_to_media_path'] = str(self.is_add_dir_to_media_path)
 
-        config.set('main', 'join_lines_that_end_with', self.join_lines_that_end_with.encode('unicode-escape').decode('utf-8'))
-        config.set('main', 'join_questions_with_answers', str(self.join_questions_with_answers))
+        self.config['#join_lines_that_end_with'] = self.join_lines_that_end_with
+        self.config['#join_questions_with_answers'] = self.join_questions_with_answers
 
-        config.set('main', 'recent_deck_names', ",".join(reversed(self.recent_deck_names)))
+        self.config['#recent_deck_names'] = ",".join(reversed(self.recent_deck_names))
 
-        with open(self.config_file_name, 'w', encoding='utf-8') as f:
-            config.write(f)
+        mw.addonManager.writeConfig(__name__, self.config)
 
     def guess_encoding(self, file_content):
         if file_content[:3] == b'\xef\xbb\xbf': # with bom
