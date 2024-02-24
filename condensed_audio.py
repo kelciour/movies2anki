@@ -113,7 +113,7 @@ def updateNotes(browser, nids):
                 if ret != 0:
                     audio_file = None
                     note["Audio Sound"] = ""
-        
+
         if audio_file is None and "Audio" not in fields:
             errors["The Audio field doesn't exist"] += 1
             continue
@@ -290,7 +290,7 @@ class AudioExporter(QThread):
             output_file = os.path.splitext(os.path.basename(path))[0] + '.mp3'
 
             self.updateProgressText.emit(output_file)
-            
+
             with open(list_to_concatenate, "w", encoding="utf-8") as f:
                 for audio_file, ret in self.notes_to_process[path]:
                     if ret != 0:
@@ -322,6 +322,11 @@ def onCondensedAudio(browser):
     if not nids:
         tooltip("No cards selected.")
         return
+    if not ffmpeg_executable:
+        return showWarning(r"""<p>Export Condensed Audio depends on <a href='https://www.ffmpeg.org'>FFmpeg</a>
+            to concatenate media files (<a href="https://trac.ffmpeg.org/wiki/Concatenate">https://trac.ffmpeg.org/wiki/Concatenate</a>),
+            but couldn't find it in the PATH environment variable.</p>
+            """)
     updateNotes(browser, nids)
 
 
