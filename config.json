@@ -2,6 +2,8 @@
 	"condensed_audio_collection.media": false,
 	"condensed_audio_output_directory": "",
 	"audio fade in/out": 0.1,
+	"video width": -2,
+	"video height": 320,
 	"video extension": "mp4",
 	"video encoding settings (webm)": "-c:v libvpx-vp9 -crf 30 -b:v 0 -c:a libopus -b:a 64k",
 	"join lines with": "<br>",

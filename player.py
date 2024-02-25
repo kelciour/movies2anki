@@ -577,8 +577,8 @@ class MediaWorker(QThread):
 
             audio_id = self.map_ids[note["Path"]]
 
-            # TODO
-            video_height = 320
+            video_width = config["video width"]
+            video_height = config["video height"]
 
             self.updateProgressText.emit(note["Source"] + "  " + ss)
 
@@ -656,7 +656,7 @@ class MediaWorker(QThread):
                     cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
                     if af_params:
                         cmd += ["-af", af_params]
-                    cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-ac", "2", "-vf", "scale=-2:%s,setsar=1" % video_height]
+                    cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-ac", "2", "-vf", "scale=%s:%s,setsar=1" % (video_width, video_height)]
                     cmd += ["-c:v", "libx264"]
                     cmd += ["-profile:v", "main", "-level:v", "3.1"]
                     cmd += ["-pix_fmt", "yuv420p"]
@@ -675,7 +675,7 @@ class MediaWorker(QThread):
                     cmd += ["--no-ocopy-metadata"]
                     cmd += ["--aid=%d" % (audio_id + 1)]
                     cmd += ["--af=afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(time_start_seconds, af_d, time_end_seconds - af_d, af_d)]
-                    cmd += ["--vf-add=lavfi-scale=%s:%s" % (-2, video_height)]
+                    cmd += ["--vf-add=lavfi-scale=%s:%s" % (video_width, video_height)]
                     if note["Video"].endswith('.webm'):
                         cmd += ["--ovc=libvpx-vp9"]
                         cmd += ["--ovcopts=b=1400K,threads=4,crf=23,qmin=0,qmax=36,speed=2"]
