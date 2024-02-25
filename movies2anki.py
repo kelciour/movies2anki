@@ -894,6 +894,8 @@ class Model(object):
         if "#input_directory" in self.config:
             self.input_directory = self.config["#input_directory"]
 
+        if "#model_name" in self.config:
+            self.model_name = self.config["#model_name"]
         # self.output_directory = config.get('main', 'output_directory')
         # self.video_width = config.getint('main', 'video_width')
         # self.video_height = config.getint('main', 'video_height')
@@ -937,6 +939,7 @@ class Model(object):
 
     def save_settings(self):
         self.config['#input_directory'] = self.input_directory
+        self.config["#model_name"] = self.model_name
         # self.config['#output_directory'] = self.output_directory.encode('utf-8')
         # self.config['#video_width'] = str(self.video_width)
         # self.config['#video_height'] = str(self.video_height)
@@ -2341,6 +2344,9 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         self.modelComboBox.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents);
         self.modelComboBox.addItems(self.model.default_model_names)
         self.modelComboBox.currentIndexChanged.connect(self.setModelName)
+        idx = self.modelComboBox.findText(self.model.model_name)
+        if idx != -1:
+            self.modelComboBox.setCurrentIndex(idx)
 
         # self.modelComboBox.setEditable(False)
         # self.modelComboBox.lineEdit().setAlignment(Qt.AlignmentFlag.AlignCenter)
