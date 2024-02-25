@@ -891,6 +891,11 @@ class Model(object):
 
         self.config = mw.addonManager.getConfig(__name__)
 
+        if 'video width' in self.config:
+            self.video_width = self.config["video width"]
+        if 'video height' in self.config:
+            self.video_height = self.config["video height"]
+
         if "#input_directory" in self.config:
             self.input_directory = self.config["#input_directory"]
 
@@ -1359,8 +1364,6 @@ class VideoWorker(QThread):
       self.canceled = True
 
     def run(self):
-        self.video_resolution = str(self.model.video_width) + ":" + str(self.model.video_height)
-
         time_start = time.time()
 
         num_files_completed = 0
@@ -1437,14 +1440,14 @@ class VideoWorker(QThread):
                             f_sub.write(self.model.encode_str(clip_subs[sub_id][2] + "\n"))
                             f_sub.write(self.model.encode_str("\n"))
 
-                vf = "scale=" + self.video_resolution
+                vf = ""
                 if self.model.is_create_clips_with_hardsub:
                     srt_style = self.model.hardsub_style
                     srt_filename = os.path.abspath(filename + ".srt")
                     if srt_filename[1] == ":": # Windows
                         srt_filename = srt_filename.replace("\\", "/")
                         srt_filename = srt_filename.replace(":", "\\\\:")
-                    vf += ",subtitles=" + srt_filename + ":force_style='" + srt_style + "'"
+                    vf = "subtitles=" + srt_filename + ":force_style='" + srt_style + "'"
 
                 softsubs_options = ""
                 softsubs_map = ""
@@ -1462,7 +1465,7 @@ class VideoWorker(QThread):
 
                     self.model.p = None
                     if ffmpeg_executable:
-                        cmd = [ffmpeg_executable, "-y", "-ss", snapshot_time, "-i", self.model.video_file, "-loglevel", "quiet", "-vf", "scale={}:{}:out_color_matrix=bt601:out_range=pc".format(-2, self.model.video_height), "-vframes", "1", "-qscale:v", "2", os.path.join(mw.col.media.dir(), snapshot_filename)]
+                        cmd = [ffmpeg_executable, "-y", "-ss", snapshot_time, "-i", self.model.video_file, "-loglevel", "quiet", "-vf", "scale='min(%s,iw)':'min(%s,ih)':out_color_matrix=bt601:out_range=pc" % (self.model.video_width, self.model.video_height), "-vframes", "1", "-qscale:v", "2", os.path.join(mw.col.media.dir(), snapshot_filename)]
                     else:
                         cmd = [mpv_executable, self.model.video_file]
                         # cmd += ["--include=%s" % self.mpvConf]
@@ -1473,7 +1476,7 @@ class VideoWorker(QThread):
                         # cmd += ["--sub-visibility=yes"]
                         # cmd += ["--sub-delay=%f" % self.subsManager.sub_delay]
                         cmd += ["--frames=1"]
-                        cmd += ["--vf-add=lavfi-scale=%s:%s" % (-2, self.model.video_height)]
+                        cmd += ["--vf-add=lavfi-scale='min(%s,iw)':'min(%s,ih)'" % (self.model.video_width, self.model.video_height)]
                         cmd += ["--vf-add=format=fmt=yuvj422p"]
                         cmd += ["--ovc=mjpeg"]
                         cmd += ["--o=%s" % os.path.join(mw.col.media.dir(), snapshot_filename)]
