@@ -867,6 +867,9 @@ class Model(object):
         self.video_width = -2
         self.video_height = 320
 
+        self.screenshot_width = -2
+        self.screenshot_height = 320
+
         self.shift_start = 0.25
         self.shift_end = 0.25
 
@@ -904,7 +907,10 @@ class Model(object):
         # self.output_directory = config.get('main', 'output_directory')
         # self.video_width = config.getint('main', 'video_width')
         # self.video_height = config.getint('main', 'video_height')
-
+        if "#screenshot_width" in self.config:
+            self.screenshot_width = self.config["#screenshot_width"]
+        if "#screenshot_height" in self.config:
+            self.screenshot_height = self.config["#screenshot_height"]
         if "#shift_start" in self.config:
             self.shift_start = self.config["#shift_start"]
         if "#shift_end" in self.config:
@@ -948,6 +954,8 @@ class Model(object):
         # self.config['#output_directory'] = self.output_directory.encode('utf-8')
         # self.config['#video_width'] = str(self.video_width)
         # self.config['#video_height'] = str(self.video_height)
+        self.config['#screenshot_width'] = self.screenshot_width
+        self.config['#screenshot_height'] = self.screenshot_height
         self.config['#shift_start'] = self.shift_start
         self.config['#shift_end'] = self.shift_end
         self.config['#time_delta'] = self.time_delta
@@ -1321,11 +1329,11 @@ class Model(object):
     def getTimeDelta(self):
         return self.time_delta
 
-    def getVideoWidth(self):
-        return self.video_width
+    def getScreenshotWidth(self):
+        return self.screenshot_width
 
-    def getVideoHeight(self):
-        return self.video_height
+    def getScreenshotHeight(self):
+        return self.screenshot_height
 
     def getShiftStart(self):
         return self.shift_start * 1000
@@ -1465,7 +1473,7 @@ class VideoWorker(QThread):
 
                     self.model.p = None
                     if ffmpeg_executable:
-                        cmd = [ffmpeg_executable, "-y", "-ss", snapshot_time, "-i", self.model.video_file, "-loglevel", "quiet", "-vf", "scale='min(%s,iw)':'min(%s,ih)':out_color_matrix=bt601:out_range=pc" % (self.model.video_width, self.model.video_height), "-vframes", "1", "-qscale:v", "2", os.path.join(mw.col.media.dir(), snapshot_filename)]
+                        cmd = [ffmpeg_executable, "-y", "-ss", snapshot_time, "-i", self.model.video_file, "-loglevel", "quiet", "-vf", "scale='min(%s,iw)':'min(%s,ih)':out_color_matrix=bt601:out_range=pc" % (self.model.screenshot_width, self.model.screenshot_height), "-vframes", "1", "-qscale:v", "2", os.path.join(mw.col.media.dir(), snapshot_filename)]
                     else:
                         cmd = [mpv_executable, self.model.video_file]
                         # cmd += ["--include=%s" % self.mpvConf]
@@ -1476,7 +1484,7 @@ class VideoWorker(QThread):
                         # cmd += ["--sub-visibility=yes"]
                         # cmd += ["--sub-delay=%f" % self.subsManager.sub_delay]
                         cmd += ["--frames=1"]
-                        cmd += ["--vf-add=lavfi-scale='min(%s,iw)':'min(%s,ih)'" % (self.model.video_width, self.model.video_height)]
+                        cmd += ["--vf-add=lavfi-scale='min(%s,iw)':'min(%s,ih)'" % (self.model.screenshot_width, self.model.screenshot_height)]
                         cmd += ["--vf-add=format=fmt=yuvj422p"]
                         cmd += ["--ovc=mjpeg"]
                         cmd += ["--o=%s" % os.path.join(mw.col.media.dir(), snapshot_filename)]
@@ -1605,8 +1613,8 @@ class MainDialog(QDialog):
         self.startButton.clicked.connect(self.start)
         self.timeSpinBox.valueChanged.connect(self.setTimeDelta)
         self.splitPhrasesSpinBox.valueChanged.connect(self.setPhrasesDurationLimit)
-        self.widthSpinBox.valueChanged.connect(self.setVideoWidth)
-        self.heightSpinBox.valueChanged.connect(self.setVideoHeight)
+        self.widthSpinBox.valueChanged.connect(self.setScreenshotWidth)
+        self.heightSpinBox.valueChanged.connect(self.setScreenshotHeight)
         self.startSpinBox.valueChanged.connect(self.setShiftStart)
         self.endSpinBox.valueChanged.connect(self.setShiftEnd)
         self.movieRadioButton.toggled.connect(self.setMovieMode)
@@ -1777,11 +1785,11 @@ class MainDialog(QDialog):
     def changeOutDir(self):
         self.model.output_directory = self.outDirEdit.text().strip()
 
-    def setVideoWidth(self):
-        self.model.video_width = self.widthSpinBox.value()
+    def setScreenshotWidth(self):
+        self.model.screenshot_width = self.widthSpinBox.value()
 
-    def setVideoHeight(self):
-        self.model.video_height = self.heightSpinBox.value()
+    def setScreenshotHeight(self):
+        self.model.screenshot_height = self.heightSpinBox.value()
 
     def setShiftStart(self):
         self.model.setShiftStart(self.startSpinBox.value())
@@ -2192,15 +2200,15 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
         return groupBox
 
-    def createVideoDimensionsGroup(self):
-        groupBox = QGroupBox("Video Dimensions:")
+    def createScreenshotDimensionsGroup(self):
+        groupBox = QGroupBox("Screenshot Dimensions:")
 
         layout = QFormLayout()
 
         self.widthSpinBox = QSpinBox()
         self.widthSpinBox.setRange(-2, 2048)
         self.widthSpinBox.setSingleStep(2)
-        self.widthSpinBox.setValue(self.model.getVideoWidth())
+        self.widthSpinBox.setValue(self.model.getScreenshotWidth())
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.widthSpinBox)
@@ -2211,7 +2219,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         self.heightSpinBox = QSpinBox()
         self.heightSpinBox.setRange(-2, 2048)
         self.heightSpinBox.setSingleStep(2)
-        self.heightSpinBox.setValue(self.model.getVideoHeight())
+        self.heightSpinBox.setValue(self.model.getScreenshotHeight())
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.heightSpinBox)
@@ -2324,8 +2332,8 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         groupBox = QGroupBox("Options:")
 
         hbox = QHBoxLayout()
-        self.videoDimensionsGroup = self.createVideoDimensionsGroup()
-        # hbox.addWidget(self.videoDimensionsGroup)
+        self.screenshotDimensionsGroup = self.createScreenshotDimensionsGroup()
+        hbox.addWidget(self.screenshotDimensionsGroup)
         hbox.addWidget(self.createPadTimingsGroup())
         hbox.addWidget(self.createSubtitlePhrasesGroup())
 
@@ -2360,7 +2368,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         # self.modelComboBox.setMinimumWidth(140)
         # self.modelComboBox.setMaximumWidth(140)
 
-        modelGroupBox.setMinimumWidth(160)
+        modelGroupBox.setMinimumWidth(205)
 
         modelComboBoxWidth = self.modelComboBox.minimumSizeHint().width()
         self.modelComboBox.view().setMinimumWidth(modelComboBoxWidth)
