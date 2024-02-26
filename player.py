@@ -254,7 +254,7 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         try:
             m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
             video_id = m.group(1)
-            aid = config["#media"][video_id]["audio_id"]
+            aid = config["~media"][video_id]["audio_id"]
         except:
             pass
 
@@ -904,7 +904,6 @@ def update_media():
     mw.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
     mw.progressDialog.setBar(mw.progress_bar)
     mw.progressDialog.setModal(True)
-    mw.progressDialog.show()
 
     is_multi_audio_streams = False
 
@@ -929,7 +928,7 @@ def update_media():
         try:
             m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
             video_id = m.group(1)
-            aid = config["#media"][video_id]["audio_id"]
+            aid = config["~media"][video_id]["audio_id"]
             map_ids[video_path] = aid-1
             continue
         except:
@@ -964,11 +963,18 @@ def update_media():
                         line = line.replace('(+) Audio ', 'Audio ')
                     if not line.startswith('Audio '):
                         continue
-                    m = re.fullmatch(r"Audio --aid=(\d+) --alang=(\S+) (?:\(\*\) )?'([^\']+)' .+", line)
-                    if not m:
-                        print('DEBUG LINE:', line)
-                        raise Exception("AUDIO NO MATCH")
-                    idx, language, title = m.groups()
+                    if line.endswith(' (external)'):
+                        continue
+                    m = re.fullmatch(r"Audio --aid=(\d+) --alang=(\S+) (?:\(\*\) )?(?:\(f\) )?'([^\']+)' .+", line)
+                    if m:
+                        idx, language, title = m.groups()
+                    else:
+                        m = re.fullmatch(r"Audio --aid=(\d+) --alang=(\S+) .*", line)
+                        if not m:
+                            print('DEBUG LINE:', line)
+                            raise Exception("AUDIO NO MATCH")
+                        idx, language = m.groups()
+                        title = ''
                     idx = int(idx)
                     
                     if len(title) != 0:

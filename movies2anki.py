@@ -907,82 +907,82 @@ class Model(object):
         if 'video height' in self.config:
             self.video_height = self.config["video height"]
 
-        if "#input_directory" in self.config:
-            self.input_directory = self.config["#input_directory"]
+        if "~input_directory" in self.config:
+            self.input_directory = self.config["~input_directory"]
 
-        if "#model_name" in self.config:
-            self.model_name = self.config["#model_name"]
+        if "~model_name" in self.config:
+            self.model_name = self.config["~model_name"]
         # self.output_directory = config.get('main', 'output_directory')
         # self.video_width = config.getint('main', 'video_width')
         # self.video_height = config.getint('main', 'video_height')
-        if "#screenshot_width" in self.config:
-            self.screenshot_width = self.config["#screenshot_width"]
-        if "#screenshot_height" in self.config:
-            self.screenshot_height = self.config["#screenshot_height"]
-        if "#shift_start" in self.config:
-            self.shift_start = self.config["#shift_start"]
-        if "#shift_end" in self.config:
-            self.shift_end = self.config["#shift_end"]
-        if "#time_delta" in self.config:
-            self.time_delta = self.config["#time_delta"]
-        if "#is_split_long_phrases" in self.config:
-            self.is_split_long_phrases = self.config["#is_split_long_phrases"]
-        if "#is_gap_phrases" in self.config:
-            self.is_gap_phrases = self.config["#is_gap_phrases"]
-        if "#phrases_duration_limit" in self.config:
-            self.phrases_duration_limit = self.config["#phrases_duration_limit"]
-        if "#mode" in self.config:
-            self.mode = self.config["#mode"]
-        if "#is_write_output_subtitles" in self.config:
-            self.is_write_output_subtitles = self.config["#is_write_output_subtitles"]
-        # if "#is_write_output_subtitles_for_clips" in self.config:
-        #     self.is_write_output_subtitles_for_clips = self.config["#is_write_output_subtitles_for_clips"]
-        # if "#is_create_clips_with_softsub" in self.config:
-        #     self.is_create_clips_with_softsub = self.config["#is_create_clips_with_softsub"]
-        # if "#is_create_clips_with_hardsub" in self.config:
-        #     self.is_create_clips_with_hardsub = self.config["#is_create_clips_with_hardsub"]
-        # if "#hardsub_style" in self.config:
-        #     self.hardsub_style = self.config["#hardsub_style"]
-        if "#is_ignore_sdh_subtitle" in self.config:
-            self.is_ignore_sdh_subtitle = self.config["#is_ignore_sdh_subtitle"]
-        # if "#'is_add_dir_to_media_path" in self.config:
-        #     self.'is_add_dir_to_media_path = self.config["#'is_add_dir_to_media_path"]
-        if "#join_lines_that_end_with" in self.config:
-            self.join_lines_that_end_with = self.config["#join_lines_that_end_with"]
-        if "#join_questions_with_answers" in self.config:
-            self.join_questions_with_answers = self.config["#join_questions_with_answers"]
-        if "#recent_deck_names" in self.config:
-            value = [e.strip() for e in self.config["#recent_deck_names"].split(',')]
+        if "~screenshot_width" in self.config:
+            self.screenshot_width = self.config["~screenshot_width"]
+        if "~screenshot_height" in self.config:
+            self.screenshot_height = self.config["~screenshot_height"]
+        if "~shift_start" in self.config:
+            self.shift_start = self.config["~shift_start"]
+        if "~shift_end" in self.config:
+            self.shift_end = self.config["~shift_end"]
+        if "~time_delta" in self.config:
+            self.time_delta = self.config["~time_delta"]
+        if "~is_split_long_phrases" in self.config:
+            self.is_split_long_phrases = self.config["~is_split_long_phrases"]
+        if "~is_gap_phrases" in self.config:
+            self.is_gap_phrases = self.config["~is_gap_phrases"]
+        if "~phrases_duration_limit" in self.config:
+            self.phrases_duration_limit = self.config["~phrases_duration_limit"]
+        if "~mode" in self.config:
+            self.mode = self.config["~mode"]
+        if "~is_write_output_subtitles" in self.config:
+            self.is_write_output_subtitles = self.config["~is_write_output_subtitles"]
+        # if "~is_write_output_subtitles_for_clips" in self.config:
+        #     self.is_write_output_subtitles_for_clips = self.config["~is_write_output_subtitles_for_clips"]
+        # if "~is_create_clips_with_softsub" in self.config:
+        #     self.is_create_clips_with_softsub = self.config["~is_create_clips_with_softsub"]
+        # if "~is_create_clips_with_hardsub" in self.config:
+        #     self.is_create_clips_with_hardsub = self.config["~is_create_clips_with_hardsub"]
+        # if "~hardsub_style" in self.config:
+        #     self.hardsub_style = self.config["~hardsub_style"]
+        if "~is_ignore_sdh_subtitle" in self.config:
+            self.is_ignore_sdh_subtitle = self.config["~is_ignore_sdh_subtitle"]
+        # if "~is_add_dir_to_media_path" in self.config:
+        #     self.is_add_dir_to_media_path = self.config["~is_add_dir_to_media_path"]
+        if "~join_lines_that_end_with" in self.config:
+            self.join_lines_that_end_with = self.config["~join_lines_that_end_with"]
+        if "~join_questions_with_answers" in self.config:
+            self.join_questions_with_answers = self.config["~join_questions_with_answers"]
+        if "~recent_deck_names" in self.config:
+            value = [e.strip() for e in self.config["~recent_deck_names"].split(',')]
             if len(value) != 0:
                 self.recent_deck_names.extendleft(value)
 
     def save_settings(self):
-        self.config['#input_directory'] = self.input_directory
-        self.config["#model_name"] = self.model_name
-        # self.config['#output_directory'] = self.output_directory.encode('utf-8')
-        # self.config['#video_width'] = str(self.video_width)
-        # self.config['#video_height'] = str(self.video_height)
-        self.config['#screenshot_width'] = self.screenshot_width
-        self.config['#screenshot_height'] = self.screenshot_height
-        self.config['#shift_start'] = self.shift_start
-        self.config['#shift_end'] = self.shift_end
-        self.config['#time_delta'] = self.time_delta
-        self.config['#is_split_long_phrases'] = self.is_split_long_phrases
-        self.config['#is_gap_phrases'] = self.is_gap_phrases
-        self.config['#phrases_duration_limit'] = self.phrases_duration_limit
-        self.config['#mode'] = self.mode
-        self.config['#is_write_output_subtitles'] = self.is_write_output_subtitles
-        # self.config['#is_write_output_subtitles_for_clips'] = str(self.is_write_output_subtitles_for_clips)
-        # self.config['#is_create_clips_with_softsub'] = str(self.is_create_clips_with_softsub)
-        # self.config['#is_create_clips_with_hardsub'] = str(self.is_create_clips_with_hardsub)
-        # self.config['#hardsub_style'] = self.hardsub_style.encode('utf-8')
-        self.config['#is_ignore_sdh_subtitle'] = self.is_ignore_sdh_subtitle
-        # self.config['#is_add_dir_to_media_path'] = str(self.is_add_dir_to_media_path)
+        self.config['~input_directory'] = self.input_directory
+        self.config["~model_name"] = self.model_name
+        # self.config['~output_directory'] = self.output_directory.encode('utf-8')
+        # self.config['~video_width'] = str(self.video_width)
+        # self.config['~video_height'] = str(self.video_height)
+        self.config['~screenshot_width'] = self.screenshot_width
+        self.config['~screenshot_height'] = self.screenshot_height
+        self.config['~shift_start'] = self.shift_start
+        self.config['~shift_end'] = self.shift_end
+        self.config['~time_delta'] = self.time_delta
+        self.config['~is_split_long_phrases'] = self.is_split_long_phrases
+        self.config['~is_gap_phrases'] = self.is_gap_phrases
+        self.config['~phrases_duration_limit'] = self.phrases_duration_limit
+        self.config['~mode'] = self.mode
+        self.config['~is_write_output_subtitles'] = self.is_write_output_subtitles
+        # self.config['~is_write_output_subtitles_for_clips'] = str(self.is_write_output_subtitles_for_clips)
+        # self.config['~is_create_clips_with_softsub'] = str(self.is_create_clips_with_softsub)
+        # self.config['~is_create_clips_with_hardsub'] = str(self.is_create_clips_with_hardsub)
+        # self.config['~hardsub_style'] = self.hardsub_style.encode('utf-8')
+        self.config['~is_ignore_sdh_subtitle'] = self.is_ignore_sdh_subtitle
+        # self.config['~is_add_dir_to_media_path'] = str(self.is_add_dir_to_media_path)
 
-        self.config['#join_lines_that_end_with'] = self.join_lines_that_end_with
-        self.config['#join_questions_with_answers'] = self.join_questions_with_answers
+        self.config['~join_lines_that_end_with'] = self.join_lines_that_end_with
+        self.config['~join_questions_with_answers'] = self.join_questions_with_answers
 
-        self.config['#recent_deck_names'] = ",".join(reversed(self.recent_deck_names))
+        self.config['~recent_deck_names'] = ",".join(reversed(self.recent_deck_names))
 
         mw.addonManager.writeConfig(__name__, self.config)
 
@@ -1120,11 +1120,11 @@ class Model(object):
 
         video_id = prefix
         if self.audio_id != -1:
-            if "#media" not in self.config:
-                self.config["#media"] = {}
-            if video_id not in self.config["#media"]:
-                self.config["#media"][video_id] = {}
-            self.config["#media"][video_id]["audio_id"] = self.audio_id
+            if "~media" not in self.config:
+                self.config["~media"] = {}
+            if video_id not in self.config["~media"]:
+                self.config["~media"][video_id] = {}
+            self.config["~media"][video_id]["audio_id"] = self.audio_id
             mw.addonManager.writeConfig(__name__, self.config)
 
         # filename = os.path.join(directory, prefix + ".tsv")
@@ -1705,12 +1705,12 @@ class MainDialog(QDialog):
 
     def tryToSetEngAudio(self):
         config = mw.addonManager.getConfig(__name__)
-        if not config["audio languages"] and self.audio_id_selected > 0:
+        if not config["preferred languages"] and self.audio_id_selected > 0:
             self.audioIdComboBox.setCurrentIndex(self.audio_id_selected - 1)
             return
-        audio_languages = [a.strip() for a in config["audio languages"].split(',')]
+        preferred_languages = [a.strip() for a in config["preferred languages"].split(',')]
         eng_id = -1
-        for lang in audio_languages:
+        for lang in preferred_languages:
             if not lang:
                 continue
             for cur_id in range(len(self.audio_streams)):
@@ -1759,11 +1759,18 @@ class MainDialog(QDialog):
                     line = line.replace('(+) Audio ', 'Audio ')
                 if not line.startswith('Audio '):
                     continue
-                m = re.fullmatch(r"Audio --aid=(\d+) --alang=(\S+) (?:\(\*\) )?'([^\']+)' .+", line)
-                if not m:
-                    print('DEBUG LINE:', line)
-                    raise Exception("AUDIO NO MATCH")
-                idx, language, title = m.groups()
+                if line.endswith(' (external)'):
+                    continue
+                m = re.fullmatch(r"Audio --aid=(\d+) --alang=(\S+) (?:\(\*\) )?(?:\(f\) )?'([^\']+)' .+", line)
+                if m:
+                    idx, language, title = m.groups()
+                else:
+                    m = re.fullmatch(r"Audio --aid=(\d+) --alang=(\S+) .*", line)
+                    if not m:
+                        print('DEBUG LINE:', line)
+                        raise Exception("AUDIO NO MATCH")
+                    idx, language = m.groups()
+                    title = ''
                 idx = int(idx)
 
                 if len(title) != 0:
