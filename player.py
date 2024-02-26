@@ -249,6 +249,14 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
     if path is not None and os.path.exists(path) and isEnd == True and not any([state, isPrev, isNext]):
         fullpath = path
         args = list(default_args)
+        aid = "auto"
+    else:
+        try:
+            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
+            video_id = m.group(1)
+            aid = config["#media"][video_id]["audio_id"]
+        except:
+            pass
 
     if not os.path.exists(fullpath):
         return
@@ -256,6 +264,7 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
     if VLC_DIR:
         cmd = [VLC_DIR] + args + [os.path.normpath(fullpath)]
     else:
+        args += ["--aid={}".format(aid)]
         if is_mac and os.path.exists(IINA_DIR):
             args = [o.replace("--", "--mpv-") for o in args]
             cmd = [IINA_DIR] + args + [fullpath]
@@ -780,10 +789,8 @@ class AudioInfo(QDialog):
                 lang = audio_tracks[i]['lang']
                 if not lang:
                     lang = '???'
-                print('i:', i)
                 if audio_tracks[i]['selected'] == 'yes':
                     i_selected = i - 1
-                    print('selected:', i_selected)
                 item_title = '{}: {}'.format(i, lang)
                 if title:
                     item_title += ' ({})'.format(title)
@@ -809,7 +816,6 @@ class AudioInfo(QDialog):
         self.setMinimumWidth(450)
 
     def setAudioStream(self, video_path, i):
-        print('setAudioStream:', video_path, i)
         self.map_ids[video_path] = i
 
     def ok(self):
@@ -900,9 +906,6 @@ def update_media():
     mw.progressDialog.setModal(True)
     mw.progressDialog.show()
 
-    map_ids = {}
-    map_data = {}
-
     is_multi_audio_streams = False
 
     mw.progressDialog.setWindowTitle("[movies2anki] Processing Audio Streams...")
@@ -910,12 +913,28 @@ def update_media():
     global is_cancel
     is_cancel = False
 
+    config = mw.addonManager.getConfig(__name__)
+
+    map_ids = {}
+    map_data = {}
+
     # select the audio stream selected by mpv
     videos = []
     for idx, note in enumerate(data):
-        if note["Path"] in videos:
+        video_path = note["Path"]
+        if video_path in videos:
             continue
-        videos.append(note["Path"])
+        if video_path in map_ids:
+            continue
+        try:
+            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
+            video_id = m.group(1)
+            aid = config["#media"][video_id]["audio_id"]
+            map_ids[video_path] = aid-1
+            continue
+        except:
+            print(traceback.format_exc())
+            videos.append(video_path)
 
     for video_path in videos:
         QApplication.instance().processEvents()

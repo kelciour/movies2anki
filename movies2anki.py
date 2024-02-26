@@ -833,7 +833,7 @@ def create_or_clean_collection_dir(directory):
 class Model(object):
     def __init__(self):
         self.video_file = ""
-        self.audio_id = 0
+        self.audio_id = -1
         self.deck_name = ""
         self.model_name = "movies2anki (add-on)"
         self.default_model_names = ["movies2anki (add-on)", "movies2anki - subs2srs", "movies2anki - subs2srs (video)", "movies2anki - subs2srs (audio)"]
@@ -1108,11 +1108,21 @@ class Model(object):
         mw.col.models.add(model)
 
     def write_tsv_file(self, deck_name, en_subs, ru_subs, directory):
-        # prefix = format_filename(deck_name)
         prefix = format_filename(os.path.splitext(os.path.basename(self.video_file))[0])
+
+        video_id = prefix
+        if self.audio_id != -1:
+            if "#media" not in self.config:
+                self.config["#media"] = {}
+            if video_id not in self.config["#media"]:
+                self.config["#media"][video_id] = {}
+            self.config["#media"][video_id]["audio_id"] = self.audio_id
+            mw.addonManager.writeConfig(__name__, self.config)
+
         # filename = os.path.join(directory, prefix + ".tsv")
 
         # f_out = open(filename, 'w')
+
 
         if not mw.col.models.by_name(self.model_name):
             if self.model_name.startswith("movies2anki - subs2srs"):
@@ -1120,7 +1130,6 @@ class Model(object):
             else:
                 self.create_new_default_model()
 
-        config = mw.addonManager.getConfig(__name__)
 
         ffmpeg_split_timestamps = []
 
@@ -1148,7 +1157,7 @@ class Model(object):
                 filename_suffix = ".sub"
 
             sound = prefix + "_" + start_time + "-" + end_time + ".mp3"
-            video = prefix + "_" + start_time + "-" + end_time + filename_suffix + "." + config["video extension"]
+            video = prefix + "_" + start_time + "-" + end_time + filename_suffix + "." + self.config["video extension"]
 
             if self.is_add_dir_to_media_path:
                 sound = prefix + ".media/" + sound
@@ -1604,7 +1613,7 @@ class MainDialog(QDialog):
         vbox.addLayout(bottomGroup)
         # ---------------------------------------------------
         self.videoButton.clicked.connect(self.showVideoFileDialog)
-        # self.audioIdComboBox.currentIndexChanged.connect(self.setAudioId)
+        self.audioIdComboBox.currentIndexChanged.connect(self.setAudioId)
         self.subsEngButton.clicked.connect(self.showSubsEngFileDialog)
         self.subsRusButton.clicked.connect(self.showSubsRusFileDialog)
         self.outDirButton.clicked.connect(self.showOutDirectoryDialog)
@@ -1686,68 +1695,85 @@ class MainDialog(QDialog):
 
         return False
 
-    # def tryToSetEngAudio(self):
-    #     eng_id = len(self.audio_streams) - 1
-    #     for cur_id in range(len(self.audio_streams)):
-    #         if self.audio_streams[cur_id].find("[eng]") != -1:
-    #             eng_id = cur_id
-    #             break
+    def tryToSetEngAudio(self):
+        config = mw.addonManager.getConfig(__name__)
+        audio_languages = [a.strip() for a in config["audio languages"].split(',')]
+        eng_id = -1
+        for lang in audio_languages:
+            if not lang:
+                continue
+            for cur_id in range(len(self.audio_streams)):
+                if self.audio_streams[cur_id].find("[{}]".format(lang)) != -1:
+                    eng_id = cur_id
+                    break
+            if eng_id != -1:
+                break
+        if eng_id == -1:
+            eng_id = len(self.audio_streams) - 1
+        self.audioIdComboBox.setCurrentIndex(eng_id)
 
-    #     self.audioIdComboBox.setCurrentIndex(eng_id)
+    def setAudioId(self):
+        self.model.audio_id = self.audioIdComboBox.currentIndex() + 1
 
-    # def setAudioId(self):
-    #     self.model.audio_id = self.audioIdComboBox.currentIndex()
+    def getAudioStreams(self, video_file):
+        self.audio_streams = []
+        self.audio_data = []
 
-    # def getAudioStreams(self, video_file):
-    #     self.audio_streams = []
+        if "*" in video_file or "?" in video_file:
+            glob_results = find_glob_files(video_file)
 
-    #     if "*" in video_file or "?" in video_file:
-    #         glob_results = find_glob_files(video_file)
+            if len(glob_results) == 0:
+                # print "Video file not found"
+                return
+            else:
+                video_file = glob_results[0]
 
-    #         if len(glob_results) == 0:
-    #             # print "Video file not found"
-    #             return
-    #         else:
-    #             video_file = glob_results[0]
+        elif not os.path.isfile(video_file):
+            # print "Video file not found"
+            return
 
-    #     elif not os.path.isfile(video_file):
-    #         # print "Video file not found"
-    #         return
+        try:
+            if ffmpeg_executable:
+                with no_bundled_libs():
+                    output = check_output([ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_file], startupinfo=si, encoding='utf-8')
+                json_data = json.loads(output)
+                streams = json_data["streams"]
 
-    #     try:
-    #         with no_bundled_libs():
-    #             output = check_output([ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_file], startupinfo=si, encoding='utf-8')
-    #     except OSError as ex:
-    #         self.model.audio_id = 0
-    #         # print "Can't find ffprobe", ex
-    #         return
+                for idx, audio in enumerate(streams, 1):
+                    title = ""
+                    language = "???"
 
-    #     json_data = json.loads(output)
-    #     streams = json_data["streams"]
+                    if "tags" in audio:
+                        tags = audio["tags"]
+                        if "language" in tags:
+                            language = tags["language"]
+                        if "title" in tags:
+                            title = tags["title"]
 
-    #     for idx in range(len(streams)):
-    #         audio = streams[idx]
+                    if len(title) != 0:
+                        stream = "%i: %s [%s]" % (idx, title, language)
+                    else:
+                        stream = "%i: [%s]" % (idx, language)
 
-    #         title = ""
-    #         language = "???"
+                    self.audio_streams.append(stream)
 
-    #         if "tags" in audio:
-    #             tags = audio["tags"]
-    #             if "language" in tags:
-    #                 language = tags["language"]
+                    self.audio_data.append({
+                        "title": title,
+                        "language": language,
+                        "index": idx
+                    })
 
-    #         if len(title) != 0:
-    #             stream = "%i: %s [%s]" % (idx, title, language)
-    #         else:
-    #             stream = "%i: [%s]" % (idx, language)
+        except OSError as ex:
+            self.model.audio_id = -1
+            return
 
-    #         self.audio_streams.append(stream)
 
-    # def changeAudioStreams(self):
-    #     self.audioIdComboBox.clear()
-    #     self.getAudioStreams(self.model.video_file)
-    #     self.audioIdComboBox.addItems(self.audio_streams)
-    #     self.tryToSetEngAudio()
+    def changeAudioStreams(self):
+        self.audioIdComboBox.clear()
+        self.getAudioStreams(self.model.video_file)
+        self.audioIdComboBox.addItems(self.audio_streams)
+        self.audioIdComboBox.adjustSize()
+        self.tryToSetEngAudio()
 
     def changeSubtitles(self):
         self.model.en_srt = guess_srt_file(self.model.video_file, [".srt", "*[eng].srt", "*eng*.srt", "*en*.srt", "*.srt", ".ass", "*.ass", ".vtt", "*.vtt"], "")
@@ -1764,7 +1790,7 @@ class MainDialog(QDialog):
         self.directory = os.path.dirname(self.model.video_file)
         self.model.input_directory = self.directory
 
-        # self.changeAudioStreams()
+        self.changeAudioStreams()
 
         self.model.out_en_srt = self.model.out_en_srt_suffix
         self.model.out_ru_srt = self.model.out_ru_srt_suffix
@@ -2150,12 +2176,14 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
         self.videoButton = QPushButton("Video...")
         self.videoEdit = QLineEdit()
-        # self.audioIdComboBox = QComboBox()
+        self.audioIdComboBox = QComboBox()
+        self.audioIdComboBox.setMinimumWidth(80)
+        self.audioIdComboBox.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.videoButton)
         hbox.addWidget(self.videoEdit)
-        # hbox.addWidget(self.audioIdComboBox)
+        hbox.addWidget(self.audioIdComboBox)
 
         vbox.addLayout(hbox)
 
