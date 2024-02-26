@@ -24,6 +24,8 @@ import shutil
 import string
 import sys
 import time
+import tempfile
+import traceback
 import os
 
 from collections import deque
@@ -61,6 +63,12 @@ if mpv_executable is None:
     mpv_path, env = _packagedCmd(["mpv"])
     mpv_executable = mpv_path[0]
     with_bundled_libs = True
+
+info = None
+if is_win:
+    info = subprocess.STARTUPINFO()
+    info.wShowWindow = subprocess.SW_HIDE
+    info.dwFlags = subprocess.STARTF_USESHOWWINDOW
 
 # maybe a fix for macOS
 # if ffprobe_executable is None:
@@ -1493,7 +1501,7 @@ class VideoWorker(QThread):
                         # cmd += ["--sub-visibility=yes"]
                         # cmd += ["--sub-delay=%f" % self.subsManager.sub_delay]
                         cmd += ["--frames=1"]
-                        cmd += ["--vf-add=lavfi-scale='min(%s,iw)':'min(%s,ih)'" % (self.model.screenshot_width, self.model.screenshot_height)]
+                        cmd += ["--vf-add=lavfi=[scale='min(%s,iw)':'min(%s,ih)']" % (self.model.screenshot_width, self.model.screenshot_height)]
                         cmd += ["--vf-add=format=fmt=yuvj422p"]
                         cmd += ["--ovc=mjpeg"]
                         cmd += ["--o=%s" % os.path.join(mw.col.media.dir(), snapshot_filename)]
@@ -1697,6 +1705,9 @@ class MainDialog(QDialog):
 
     def tryToSetEngAudio(self):
         config = mw.addonManager.getConfig(__name__)
+        if not config["audio languages"] and self.audio_id_selected > 0:
+            self.audioIdComboBox.setCurrentIndex(self.audio_id_selected - 1)
+            return
         audio_languages = [a.strip() for a in config["audio languages"].split(',')]
         eng_id = -1
         for lang in audio_languages:
@@ -1732,8 +1743,45 @@ class MainDialog(QDialog):
             # print "Video file not found"
             return
 
+        self.audio_id_selected = -1
         try:
-            if ffmpeg_executable:
+            with no_bundled_libs():
+                cmd = [mpv_executable, "--vo=null", "--ao=null", "--frames=0", "--quiet", "--no-cache", "--", video_file]
+                with tempfile.TemporaryFile() as tmpfile:
+                    subprocess.check_call(cmd, startupinfo=info, encoding='utf-8', stdout=tmpfile, timeout=5)
+                    tmpfile.seek(0)
+                    mpv_output = tmpfile.read().decode('utf-8').strip()
+            for line in mpv_output.splitlines():
+                is_selected = False
+                line = line.strip()
+                if line.startswith('(+) Audio '):
+                    is_selected = True
+                    line = line.replace('(+) Audio ', 'Audio ')
+                if not line.startswith('Audio '):
+                    continue
+                m = re.fullmatch(r"Audio --aid=(\d+) --alang=(\S+) (?:\(\*\) )?'([^\']+)' .+", line)
+                if not m:
+                    print('DEBUG LINE:', line)
+                    raise Exception("AUDIO NO MATCH")
+                idx, language, title = m.groups()
+                idx = int(idx)
+
+                if len(title) != 0:
+                    stream = "%i: %s [%s]" % (idx, title, language)
+                else:
+                    stream = "%i: [%s]" % (idx, language)
+
+                if is_selected:
+                    self.audio_id_selected = idx
+
+                self.audio_streams.append(stream)
+
+                self.audio_data.append({
+                    "title": title,
+                    "language": language,
+                    "index": idx
+                })
+            if not self.audio_streams and ffmpeg_executable:
                 with no_bundled_libs():
                     output = check_output([ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_file], startupinfo=si, encoding='utf-8')
                 json_data = json.loads(output)
@@ -1762,8 +1810,8 @@ class MainDialog(QDialog):
                         "language": language,
                         "index": idx
                     })
-
         except OSError as ex:
+            print(traceback.format_exc())
             self.model.audio_id = -1
             return
 

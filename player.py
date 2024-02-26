@@ -684,7 +684,7 @@ class MediaWorker(QThread):
                     cmd += ["--no-ocopy-metadata"]
                     cmd += ["--aid=%d" % (audio_id + 1)]
                     cmd += ["--af=afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(time_start_seconds, af_d, time_end_seconds - af_d, af_d)]
-                    cmd += ["--vf-add=lavfi-scale='min(%s,iw)':'min(%s,ih)'" % (video_width, video_height)]
+                    cmd += ["--vf-add=lavfi=[scale='min(%s,iw)':'min(%s,ih)',setsar=1]" % (video_width, video_height)]
                     if note["Video"].endswith('.webm'):
                         cmd += ["--ovc=libvpx-vp9"]
                         cmd += ["--ovcopts=b=1400K,threads=4,crf=23,qmin=0,qmax=36,speed=2"]
@@ -950,47 +950,40 @@ def update_media():
         with no_bundled_libs():
             audio_tracks = {}
             try:
-                cmd = [mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/count}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", video_path]
-                logger.debug('check_output: {}'.format('Started'))
-                logger.debug('check_output: {}'.format(join_and_add_double_quotes(cmd)))
-                QApplication.instance().processEvents()
-                if is_cancel:
-                    return
-                with tempfile.TemporaryFile() as tmpfile:
-                    subprocess.check_call(cmd, startupinfo=info, encoding='utf-8', stdout=tmpfile, timeout=5)
-                    tmpfile.seek(0)
-                    track_list_count = tmpfile.read().decode('utf-8').strip()
-                logger.debug('check_output: {}, {}'.format('Finished', track_list_count))
-                track_list_count = track_list_count.replace('term-msg:', '').replace('[term-msg]', '')
-                track_list_count = int(track_list_count)
-                for i in range(track_list_count):
-                    QApplication.instance().processEvents()
-                    if is_cancel:
-                        return
-                    track_type = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/type}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", video_path], startupinfo=info, encoding='utf-8', timeout=3)
-                    if track_type.strip() == 'audio':
-                        audio_tracks[i] = {
-                            'title': '',
-                            'lang': '',
-                            'selected': '',
-                            'ffmpeg-index': ''
-                        }
-                for idx, i in enumerate(audio_tracks):
-                    QApplication.instance().processEvents()
-                    if is_cancel:
-                        return
-                    output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/selected}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", video_path], startupinfo=info, encoding='utf-8', timeout=3)
-                    audio_tracks[i]['selected'] = output.strip()
-                    QApplication.instance().processEvents()
-                    output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/title}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", video_path], startupinfo=info, encoding='utf-8', timeout=3)
-                    audio_tracks[i]['title'] = output.strip()
-                    QApplication.instance().processEvents()
-                    output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/lang}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", video_path], startupinfo=info, encoding='utf-8', timeout=3)
-                    audio_tracks[i]['lang'] = output.strip()
-                    QApplication.instance().processEvents()
-                    output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${track-list/' + str(i) + '/ff-index}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--", video_path], startupinfo=info, encoding='utf-8', timeout=3)
-                    ffmpeg_audio_id = idx
-                    audio_tracks[i]['ffmpeg-index'] = idx
+                with no_bundled_libs():
+                    cmd = [mpv_executable, "--vo=null", "--ao=null", "--frames=0", "--quiet", "--no-cache", "--", video_path]
+                    with tempfile.TemporaryFile() as tmpfile:
+                        subprocess.check_call(cmd, startupinfo=info, encoding='utf-8', stdout=tmpfile, timeout=5)
+                        tmpfile.seek(0)
+                        mpv_output = tmpfile.read().decode('utf-8').strip()
+                for line in mpv_output.splitlines():
+                    is_selected = False
+                    line = line.strip()
+                    if line.startswith('(+) Audio '):
+                        is_selected = True
+                        line = line.replace('(+) Audio ', 'Audio ')
+                    if not line.startswith('Audio '):
+                        continue
+                    m = re.fullmatch(r"Audio --aid=(\d+) --alang=(\S+) (?:\(\*\) )?'([^\']+)' .+", line)
+                    if not m:
+                        print('DEBUG LINE:', line)
+                        raise Exception("AUDIO NO MATCH")
+                    idx, language, title = m.groups()
+                    idx = int(idx)
+                    
+                    if len(title) != 0:
+                        stream = "%i: %s [%s]" % (idx, title, language)
+                    else:
+                        stream = "%i: [%s]" % (idx, language)
+
+                    ffmpeg_audio_id = idx - 1
+
+                    audio_tracks[idx] = {
+                        'title': title,
+                        'lang': language,
+                        'selected': 'yes' if is_selected else '',
+                        'ffmpeg-index': ffmpeg_audio_id
+                    }
                 if len(audio_tracks) > 1:
                     is_multi_audio_streams = True
             except Exception as e:
