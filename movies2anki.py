@@ -1831,7 +1831,17 @@ class MainDialog(QDialog):
         self.tryToSetEngAudio()
 
     def changeSubtitles(self):
-        self.model.en_srt = guess_srt_file(self.model.video_file, [".srt", "*[eng].srt", "*eng*.srt", "*en*.srt", "*.srt", ".ass", "*.ass", ".vtt", "*.vtt"], "")
+        config = mw.addonManager.getConfig(__name__)
+        preferred_languages = [a.strip() for a in config["preferred languages"].split(',')]
+        subs_lang = []
+        for lang in preferred_languages:
+            subs_lang.append('*[{}].ass'.format(lang))
+            subs_lang.append('*[{}].srt'.format(lang))
+            subs_lang.append('*[{}].vtt'.format(lang))
+            subs_lang.append('*{}*.ass'.format(lang))
+            subs_lang.append('*{}*.srt'.format(lang))
+            subs_lang.append('*{}*.vtt'.format(lang))
+        self.model.en_srt = guess_srt_file(self.model.video_file, subs_lang + [".ass", ".srt", ".vtt", "*.srt", "*.ass", "*.vtt"], "")
         self.subsEngEdit.setText(self.model.en_srt)
 
         self.model.ru_srt = guess_srt_file(self.model.video_file, ["*rus*.srt", "*ru*.srt"], "")
