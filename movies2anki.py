@@ -1086,6 +1086,8 @@ class Model(object):
         model = mw.col.models.new(self.model_name)
         if "subs2srs (video)" in self.model_name:
             model['css'] = styles.subs2srs_video_css.strip()
+        elif "subs2srs (audio)" in self.model_name:
+            model['css'] = styles.subs2srs_audio_css.strip()
         else:
             model['css'] = styles.subs2srs_css.strip()
 
