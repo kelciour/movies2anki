@@ -2103,7 +2103,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         else:
             message = "\n".join("%s\n%s\n" %
                 (os.path.basename(t[0]), os.path.basename(t[1])) for t in self.model.jobs)
-        ret = JobsInfo(message).exec_()
+        ret = JobsInfo(message).exec()
         if ret == 1:
             ret = self.check_directories()
             if ret == True:

@@ -1042,7 +1042,7 @@ def update_media():
     QApplication.instance().processEvents()
 
     if is_multi_audio_streams:
-        AudioInfo(map_ids, map_data).exec_()
+        AudioInfo(map_ids, map_data).exec()
 
     mw.progressDialog.setWindowTitle("[movies2anki] Generating Media...")
     mw.progressDialog.setValue(0)
