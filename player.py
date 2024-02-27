@@ -668,14 +668,14 @@ class MediaWorker(QThread):
                     if af_params:
                         cmd += ["-af", af_params]
                     cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-ac", "2", "-vf", "scale='min(%s,iw)':'min(%s,ih)',setsar=1" % (video_width, video_height)]
-                    cmd += ["-c:v", "libx264"]
-                    cmd += ["-profile:v", "main", "-level:v", "3.1"]
                     cmd += ["-pix_fmt", "yuv420p"]
                     cmd += ["-sn"]
                     cmd += ["-map_metadata", "-1"]
                     if note["Video"].endswith('.webm'):
                         cmd += config["video encoding settings (webm)"].split()
                     else:
+                        cmd += ["-c:v", "libx264"]
+                        cmd += ["-profile:v", "main", "-level:v", "3.1"]
                         cmd += ['-movflags', '+faststart']
                     cmd += [note["Video"]]
                 else:
