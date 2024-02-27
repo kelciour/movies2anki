@@ -18,7 +18,6 @@ except ImportError:
 from distutils.spawn import find_executable
 
 import json
-import hashlib
 import os
 import re
 import shutil
@@ -1121,7 +1120,7 @@ class Model(object):
     def write_tsv_file(self, deck_name, en_subs, ru_subs, directory):
         prefix = format_filename(os.path.splitext(os.path.basename(self.video_file))[0])
 
-        video_id = hashlib.md5(prefix.encode('utf-8')).hexdigest()
+        video_id = prefix
         if self.audio_id != -1:
             if "~media" not in self.config:
                 self.config["~media"] = {}

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import subprocess, sys, json, time, re, os, atexit
-import hashlib
 import logging
 import tempfile
 import traceback
@@ -255,7 +254,6 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         try:
             m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
             video_id = m.group(1)
-            video_id = hashlib.md5(video_id.encode('utf-8')).hexdigest()
             aid = config["~media"][video_id]["audio_id"]
         except:
             pass
@@ -930,7 +928,6 @@ def update_media():
         try:
             m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
             video_id = m.group(1)
-            video_id = hashlib.md5(video_id.encode('utf-8')).hexdigest()
             aid = config["~media"][video_id]["audio_id"]
             map_ids[video_path] = aid-1
             continue
