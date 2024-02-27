@@ -1764,17 +1764,21 @@ class MainDialog(QDialog):
                     continue
                 if line.endswith(' (external)'):
                     continue
-                m = re.fullmatch(r"Audio --aid=(\d+) --alang=(\S+) (?:\(\*\) )?(?:\(f\) )?'([^\']+)' .+", line)
-                if m:
-                    idx, language, title = m.groups()
-                else:
-                    m = re.fullmatch(r"Audio --aid=(\d+) --alang=(\S+) .*", line)
-                    if not m:
-                        print('DEBUG LINE:', line)
-                        raise Exception("AUDIO NO MATCH")
-                    idx, language = m.groups()
-                    title = ''
+                idx, language, title = '', '', ''
+                for s in line.split():
+                    m = re.fullmatch(r'--aid=(\d+)', s)
+                    if m:
+                        idx = m.group(1)
+                    m = re.fullmatch(r'--alang=(.+)', s)
+                    if m:
+                        language = m.group(1)
+                    m = re.fullmatch(r"'([^\']+)'", s)
+                    if m and not title:
+                        title = m.group(1)
                 idx = int(idx)
+
+                if not language:
+                    language = 'und'
 
                 if len(title) != 0:
                     stream = "%i: %s [%s]" % (idx, title, language)
@@ -1799,7 +1803,7 @@ class MainDialog(QDialog):
 
                 for idx, audio in enumerate(streams, 1):
                     title = ""
-                    language = "???"
+                    language = "und"
 
                     if "tags" in audio:
                         tags = audio["tags"]

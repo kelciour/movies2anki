@@ -790,7 +790,7 @@ class AudioInfo(QDialog):
                     title = ''
                 lang = audio_tracks[i]['lang']
                 if not lang:
-                    lang = '???'
+                    lang = 'und'
                 if audio_tracks[i]['selected'] == 'yes':
                     i_selected = i - 1
                 item_title = '{}: {}'.format(i, lang)
@@ -968,18 +968,22 @@ def update_media():
                         continue
                     if line.endswith(' (external)'):
                         continue
-                    m = re.fullmatch(r"Audio --aid=(\d+) --alang=(\S+) (?:\(\*\) )?(?:\(f\) )?'([^\']+)' .+", line)
-                    if m:
-                        idx, language, title = m.groups()
-                    else:
-                        m = re.fullmatch(r"Audio --aid=(\d+) --alang=(\S+) .*", line)
-                        if not m:
-                            print('DEBUG LINE:', line)
-                            raise Exception("AUDIO NO MATCH")
-                        idx, language = m.groups()
-                        title = ''
+                    idx, language, title = '', '', ''
+                    for s in line.split():
+                        m = re.fullmatch(r'--aid=(\d+)', s)
+                        if m:
+                            idx = m.group(1)
+                        m = re.fullmatch(r'--alang=(.+)', s)
+                        if m:
+                            language = m.group(1)
+                        m = re.fullmatch(r"'([^\']+)'", s)
+                        if m and not title:
+                            title = m.group(1)
                     idx = int(idx)
                     
+                    if not language:
+                        language = 'und'
+
                     if len(title) != 0:
                         stream = "%i: %s [%s]" % (idx, title, language)
                     else:
