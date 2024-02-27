@@ -119,24 +119,48 @@ subs2srs_css = css + """
 #  ------------------------------------- #
 
 subs2srs_video_front_template = """
-<video poster="{{Id}}.jpg" playsinline autoplay onclick="playVideo(); return false;" controlsList="nodownload" disablepictureinpicture disableRemotePlayback>
+<video poster="{{text:Id}}.jpg" autoplay playsinline onclick="playVideo(); return false;" controlsList="nodownload" disablepictureinpicture disableRemotePlayback>
   <source src="{{text:Id}}.webm" type="video/webm">
   <source src="{{text:Id}}.mp4" type="video/mp4">
 </video>
 
 <script>
-function playVideo(event) {
-  let selection = window.getSelection();
-  if (selection.toString().length != 0) {
-    return;
+var isVideoError = false;
+var isAutoPlay = true;
+
+var video = document.querySelector('video');
+video.addEventListener('error', () => {
+  isVideoError = true;
+  if (isAutoPlay) {
+    isAutoPlay = false;
+    playVideo();
   }
-  if (typeof pycmd !== 'undefined') {
-    pycmd(`ankiplay{{Video}}`);
+}, true);
+
+function playVideo() {
+  if (isVideoError && typeof pycmd !== 'undefined') {
+    return pycmd("ankiplay{{Video}}");
   } else {
-    let video = document.querySelector('video');
     video.currentTime = 0;
     video.play();
   }
+}
+
+var isTextSelected = false;
+
+function tapAction(event) {
+  if (isTextSelected) return;
+  if (!window.getSelection().isCollapsed) return;
+  if (event.target.tagName == 'A') return;
+  playVideo();
+}
+
+if (!document.body.hasAttribute('js-tap-on-screen-handler')) {
+  document.body.setAttribute('js-tap-on-screen-handler', '');
+  document.addEventListener('click', tapAction);
+  document.addEventListener('mousedown', (event) => {
+    isTextSelected = !window.getSelection().isCollapsed;
+  });
 }
 
 function replaySound(event) {
@@ -144,27 +168,15 @@ function replaySound(event) {
   playVideo();
 }
 
-(() => {
-  let video = document.querySelector('video');
-
-  video.addEventListener('error', () => {
-    if (typeof pycmd !== 'undefined') {
-      pycmd(`ankiplay{{Video}}`);
-    }
-  }, true);
-
-  if (!document.body.hasAttribute('js-replay-button-handler')) {
-    document.body.setAttribute('js-replay-button-handler', '');
-    document.addEventListener('keyup', replaySound);
-  }
-
-  document.body.addEventListener("click", playVideo, false);
-})();
+if (!document.body.hasAttribute('js-replay-button-handler')) {
+  document.body.setAttribute('js-replay-button-handler', '');
+  document.addEventListener('keyup', replaySound);
+}
 </script>
 """
 
 subs2srs_video_back_template = """
-<video poster="{{Id}}.jpg" playsinline onclick="playVideo(); return false;" controlsList="nodownload" disablepictureinpicture disableRemotePlayback>
+<video poster="{{text:Id}}.jpg" playsinline onclick="playVideo(); return false;" controlsList="nodownload" disablepictureinpicture disableRemotePlayback>
   <source src="{{text:Id}}.webm" type="video/webm">
   <source src="{{text:Id}}.mp4" type="video/mp4">
 </video>
@@ -188,18 +200,37 @@ subs2srs_video_back_template = """
 </div>
 
 <script>
-function playVideo(event) {
-  let selection = window.getSelection();
-  if (selection.toString().length != 0) {
-    return;
-  }
-  if (typeof pycmd !== 'undefined') {
-    pycmd(`ankiplay{{Video}}`);
+var isVideoError = false;
+
+var video = document.querySelector('video');
+video.addEventListener('error', () => {
+  isVideoError = true;
+}, true);
+
+function playVideo() {
+  if (isVideoError && typeof pycmd !== 'undefined') {
+    return pycmd("ankiplay{{Video}}");
   } else {
-    let video = document.querySelector('video');
     video.currentTime = 0;
     video.play();
   }
+}
+
+var isTextSelected = false;
+
+function tapAction(event) {
+  if (isTextSelected) return;
+  if (!window.getSelection().isCollapsed) return;
+  if (event.target.tagName == 'A') return;
+  playVideo();
+}
+
+if (!document.body.hasAttribute('js-tap-on-screen-handler')) {
+  document.body.setAttribute('js-tap-on-screen-handler', '');
+  document.addEventListener('click', tapAction);
+  document.addEventListener('mousedown', (event) => {
+    isTextSelected = !window.getSelection().isCollapsed;
+  });
 }
 
 function replaySound(event) {
@@ -207,26 +238,10 @@ function replaySound(event) {
   playVideo();
 }
 
-(() => {
-  let video = document.querySelector('video');
-
-  video.addEventListener('error', () => {
-    if (typeof pycmd !== 'undefined') {
-      pycmd(`ankiplay{{Video}}`);
-    }
-  }, true);
-
-  if (!document.body.hasAttribute('js-replay-button-handler')) {
-    document.body.setAttribute('js-replay-button-handler', '');
-    document.addEventListener('keyup', replaySound);
-  }
-
-  document.body.addEventListener("click", playVideo, false);
-
-  document.querySelectorAll('.replay-button').forEach(elem => {
-    elem.addEventListener('click', event => event.stopPropagation());
-  });
-})();
+if (!document.body.hasAttribute('js-replay-button-handler')) {
+  document.body.setAttribute('js-replay-button-handler', '');
+  document.addEventListener('keyup', replaySound);
+}
 </script>
 """
 
