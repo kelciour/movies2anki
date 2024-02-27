@@ -52,7 +52,7 @@ css = """
 }
 
 .snapshot {
- margin-bottom: 3px;
+ margin-bottom: 9px;
 }
 
 img {
