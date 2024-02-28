@@ -183,7 +183,7 @@ subs2srs_video_back_template = """
 
 <div class="back">
 
-  <hr id="answer">
+  <hr class="hidden">
 
   <div class="expression">{{Expression}}</div>
 
@@ -259,17 +259,18 @@ video {
  margin: auto;
 }
 
-hr#answer {
+.hidden {
  visibility: hidden;
  margin-top: 0;
 }
 
 .mobile body, .mobile #content {
  margin: 0;
+ padding: 0;
 }
 
 .mobile #content .back {
- margin: 20px;
+ margin: 15px;
 }
 """
 
