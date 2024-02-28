@@ -674,11 +674,13 @@ class MediaWorker(QThread):
                 else:
                     self.updateNote.emit(str(note.id), "Audio", "[sound:%s]" % audio_filename)
 
-            video_filename = note["Video"]
-            m = re.search(r'\[sound:(.+?)\]', video_filename)
-            if m:
-                video_filename = m.group(1)
-            if ("Video Sound" in note and (note["Video Sound"] == "") or not os.path.exists(os.path.join(mw.col.media.dir(), video_filename))):
+            video_filename = ""
+            if "Video" in note:
+                video_filename = note["Video"]
+                m = re.search(r'\[sound:(.+?)\]', video_filename)
+                if m:
+                    video_filename = m.group(1)
+            if ("Video Sound" in note and (note["Video Sound"] == "") or (video_filename != "" and not os.path.exists(os.path.join(mw.col.media.dir(), video_filename)))):
                 self.fp = None
                 if ffmpeg_executable:
                     cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
@@ -900,15 +902,17 @@ def update_media():
             if m:
                 audio_filename = m.group(1)
 
-            video_filename = note["Video"]
-            m = re.search(r'\[sound:(.+?)\]', video_filename)
-            if m:
-                video_filename = m.group(1)
+            video_filename = ""
+            if "Video" in note:
+                video_filename = note["Video"]
+                m = re.search(r'\[sound:(.+?)\]', video_filename)
+                if m:
+                    video_filename = m.group(1)
 
             if ("Audio Sound" in note and note["Audio Sound"] == "") or not os.path.exists(os.path.join(mw.col.media.dir(), audio_filename)):
                 data.append(note)
             elif model["name"] in ["movies2anki (add-on)", "movies2anki - subs2srs (video)"] and \
-                (("Video Sound" in note and note["Video Sound"] == "") or not os.path.exists(os.path.join(mw.col.media.dir(), video_filename))):
+                (("Video Sound" in note and note["Video Sound"] == "") or (video_filename != "" and not os.path.exists(os.path.join(mw.col.media.dir(), video_filename)))):
                 data.append(note)
 
     if len(data) == 0:
