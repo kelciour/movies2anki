@@ -1068,13 +1068,13 @@ class Model(object):
         model = mw.col.models.new(self.model_name)
         model['css'] = styles.css.strip()
         mw.col.models.addField(model, mw.col.models.new_field("Id"))
-        mw.col.models.addField(model, mw.col.models.new_field("Source"))
-        mw.col.models.addField(model, mw.col.models.new_field("Path"))
-        mw.col.models.addField(model, mw.col.models.new_field("Audio"))
-        mw.col.models.addField(model, mw.col.models.new_field("Video"))
         mw.col.models.addField(model, mw.col.models.new_field("Expression"))
         mw.col.models.addField(model, mw.col.models.new_field("Meaning"))
         mw.col.models.addField(model, mw.col.models.new_field("Notes"))
+        mw.col.models.addField(model, mw.col.models.new_field("Audio"))
+        mw.col.models.addField(model, mw.col.models.new_field("Video"))
+        mw.col.models.addField(model, mw.col.models.new_field("Source"))
+        mw.col.models.addField(model, mw.col.models.new_field("Path"))
         t = mw.col.models.new_template("Card 1")
         t['qfmt'] = styles.front_template.strip()
         t['afmt'] = styles.back_template.strip()
@@ -1091,16 +1091,16 @@ class Model(object):
             model['css'] = styles.subs2srs_css.strip()
 
         mw.col.models.addField(model, mw.col.models.new_field("Id"))
-        mw.col.models.addField(model, mw.col.models.new_field("Source"))
-        mw.col.models.addField(model, mw.col.models.new_field("Path"))
-        mw.col.models.addField(model, mw.col.models.new_field("Audio"))
-        if "subs2srs (video)" in self.model_name:
-            mw.col.models.addField(model, mw.col.models.new_field("Video"))
         mw.col.models.addField(model, mw.col.models.new_field("Expression"))
         mw.col.models.addField(model, mw.col.models.new_field("Meaning"))
         mw.col.models.addField(model, mw.col.models.new_field("Notes"))
         if "subs2srs (audio)" not in self.model_name:
             mw.col.models.addField(model, mw.col.models.new_field("Snapshot"))
+        mw.col.models.addField(model, mw.col.models.new_field("Audio"))
+        if "subs2srs (video)" in self.model_name:
+            mw.col.models.addField(model, mw.col.models.new_field("Video"))
+        mw.col.models.addField(model, mw.col.models.new_field("Source"))
+        mw.col.models.addField(model, mw.col.models.new_field("Path"))
         # if "subs2srs (video)" in self.model_name:
         #     mw.col.models.addField(model, mw.col.models.new_field("Video Sound"))
 

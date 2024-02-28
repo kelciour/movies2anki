@@ -595,7 +595,8 @@ class MediaWorker(QThread):
             video_width = config["video width"]
             video_height = config["video height"]
 
-            self.updateProgressText.emit(note["Source"] + "  " + ss)
+            video_source = os.path.splitext(os.path.basename(note["Path"]))[0]
+            self.updateProgressText.emit(video_source + "  " + ss)
 
             audio_filename = note["Audio"]
             m = re.search(r'\[sound:(.+?)\]', audio_filename)
