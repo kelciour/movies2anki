@@ -12,8 +12,10 @@ except ImportError:
     from anki.sound import play, _packagedCmd, si
     import anki.sound as sound
 
+from anki import hooks
 from anki.lang import _, ngettext
 from anki.hooks import addHook, wrap
+from anki.template import TemplateRenderContext
 from anki.utils import no_bundled_libs, strip_html
 from aqt.reviewer import Reviewer
 from aqt import mw, browser
@@ -425,7 +427,11 @@ def replayVideo(isEnd=True, isPrev=False, isNext=False):
 
 def joinCard(isPrev=False, isNext=False):
     if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
-        m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", mw.reviewer.card.note()["Audio"])
+        audio_filename = mw.reviewer.card.note()["Audio"]
+        m = re.search(r'\[sound:(.+?)\]', audio_filename)
+        if m:
+            audio_filename = m.group(1)
+        m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", audio_filename)
 
         card_prefix, time_start, time_end = m.groups()
         time_start = timeToSeconds(time_start)
@@ -591,6 +597,11 @@ class MediaWorker(QThread):
 
             self.updateProgressText.emit(note["Source"] + "  " + ss)
 
+            audio_filename = note["Audio"]
+            m = re.search(r'\[sound:(.+?)\]', audio_filename)
+            if m:
+                audio_filename = m.group(1)
+
             af_params = default_af_params
             if NORMALIZE_AUDIO and not (NORMALIZE_AUDIO_WITH_MP3GAIN and mp3gain_executable):
                 cmd = [ffmpeg_executable, "-ss", ss, "-i", note["Path"], "-t", str(t), "-af", "loudnorm=%s:print_format=json" % NORMALIZE_AUDIO_FILTER, "-f", "null", "-"]
@@ -617,7 +628,7 @@ class MediaWorker(QThread):
                 else:
                     af_params = nf_params
 
-            if note["Audio Sound"] == "" or not os.path.exists(os.path.join(mw.col.media.dir(), note["Audio"])):
+            if ("Audio Sound" in note and note["Audio Sound"] == "") or not os.path.exists(os.path.join(mw.col.media.dir(), audio_filename)):
                 self.fp = None
                 if ffmpeg_executable:
                     cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
@@ -626,7 +637,7 @@ class MediaWorker(QThread):
                     cmd += ["-sn"]
                     cmd += ["-map_metadata", "-1"]
                     cmd += ["-map", "0:a:{}".format(audio_id)]
-                    cmd += [note["Audio"]]
+                    cmd += [audio_filename]
                 else:
                     cmd = [mpv_executable, note["Path"]]
                     # cmd += ["--include=%s" % self.mpvConf]
@@ -635,7 +646,7 @@ class MediaWorker(QThread):
                     cmd += ["--video=no"]
                     cmd += ["--no-ocopy-metadata"]
                     cmd += ["--af=afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(time_start_seconds, af_d, time_end_seconds - af_d, af_d)]
-                    cmd += ["--o=%s" % note["Audio"]]
+                    cmd += ["--o=%s" % audio_filename]
 
                 logger.debug('export_audio: {}'.format('Started'))
                 logger.debug('export_audio: {}'.format(join_and_add_double_quotes(cmd)))
@@ -649,7 +660,7 @@ class MediaWorker(QThread):
                 logger.debug('export_audio: {}'.format('Finished'))
 
                 if NORMALIZE_AUDIO and NORMALIZE_AUDIO_WITH_MP3GAIN and mp3gain_executable:
-                    cmd = [mp3gain_executable, "/f", "/q", "/r", "/k", note["Audio"]]
+                    cmd = [mp3gain_executable, "/f", "/q", "/r", "/k", audio_filename]
                     with no_bundled_libs():
                         self.fp = subprocess.Popen(cmd, startupinfo=info, cwd=mw.col.media.dir())
                         self.fp.wait()
@@ -657,9 +668,16 @@ class MediaWorker(QThread):
                 if self.canceled:
                     break
 
-                self.updateNote.emit(str(note.id), "Audio Sound", note["Audio"])
+                if "Audio Sound" in note:
+                    self.updateNote.emit(str(note.id), "Audio Sound", "[sound:%s]" % audio_filename)
+                else:
+                    self.updateNote.emit(str(note.id), "Audio", "[sound:%s]" % audio_filename)
 
-            if "Video Sound" in note and (note["Video Sound"] == "" or not os.path.exists(os.path.join(mw.col.media.dir(), note["Video"]))):
+            video_filename = note["Video"]
+            m = re.search(r'\[sound:(.+?)\]', video_filename)
+            if m:
+                video_filename = m.group(1)
+            if ("Video Sound" in note and (note["Video Sound"] == "") or not os.path.exists(os.path.join(mw.col.media.dir(), video_filename))):
                 self.fp = None
                 if ffmpeg_executable:
                     cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
@@ -669,13 +687,13 @@ class MediaWorker(QThread):
                     cmd += ["-pix_fmt", "yuv420p"]
                     cmd += ["-sn"]
                     cmd += ["-map_metadata", "-1"]
-                    if note["Video"].endswith('.webm'):
+                    if video_filename.endswith('.webm'):
                         cmd += config["video encoding settings (webm)"].split()
                     else:
                         cmd += ["-c:v", "libx264"]
                         cmd += ["-profile:v", "main", "-level:v", "3.1"]
                         cmd += ['-movflags', '+faststart']
-                    cmd += [note["Video"]]
+                    cmd += [video_filename]
                 else:
                     cmd = [mpv_executable, note["Path"]]
                     # cmd += ["--include=%s" % self.mpvConf]
@@ -685,7 +703,7 @@ class MediaWorker(QThread):
                     cmd += ["--aid=%d" % (audio_id + 1)]
                     cmd += ["--af=afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(time_start_seconds, af_d, time_end_seconds - af_d, af_d)]
                     cmd += ["--vf-add=lavfi=[scale='min(%s,iw)':'min(%s,ih)',setsar=1]" % (video_width, video_height)]
-                    if note["Video"].endswith('.webm'):
+                    if video_filename.endswith('.webm'):
                         cmd += ["--ovc=libvpx-vp9"]
                         cmd += ["--ovcopts=b=1400K,threads=4,crf=23,qmin=0,qmax=36,speed=2"]
                     else:
@@ -694,7 +712,7 @@ class MediaWorker(QThread):
                         cmd += ["--vf-add=format=yuv420p"]
                         cmd += ["--oac=aac"]
                         cmd += ["--ofopts=movflags=+faststart"]
-                    cmd += ["--o=%s" % note["Video"]]
+                    cmd += ["--o=%s" % video_filename]
                 logger.debug('export_video: {}'.format('Started'))
                 logger.debug('export_video: {}'.format(join_and_add_double_quotes(cmd)))
                 if with_bundled_libs:
@@ -716,7 +734,10 @@ class MediaWorker(QThread):
                 if self.canceled:
                     break
 
-                self.updateNote.emit(str(note.id), "Video Sound", note["Video"])
+                if "Video Sound" in note:
+                    self.updateNote.emit(str(note.id), "Video Sound", "[sound:%s]" % video_filename)
+                else:
+                    self.updateNote.emit(str(note.id), "Video", "[sound:%s]" % video_filename)
 
         job_end = time.time()
         time_diff = (job_end - job_start)
@@ -741,7 +762,7 @@ def setProgressText(text):
 
 def saveNote(nid, fld, val):
     note = mw.col.get_note(int(nid))
-    note[fld] = "[sound:%s]" % val
+    note[fld] = val
     note.flush()
 
 def finishProgressDialog(time_diff):
@@ -824,6 +845,17 @@ class AudioInfo(QDialog):
     def cancel(self):
         self.done(0)
 
+def on_play_filter(text, field, filter, context: TemplateRenderContext):
+    if filter != "play":
+        return text
+
+    if '[sound:' in text:
+        return text
+
+    return '[sound:{}]'.format(text)
+
+hooks.field_filter.append(on_play_filter)
+
 def update_media():
     global ffmpeg_executable
 
@@ -846,40 +878,36 @@ def update_media():
 
     data = []
     for model_name in ["movies2anki (add-on)", "movies2anki - subs2srs", "movies2anki - subs2srs (video)", "movies2anki - subs2srs (audio)"]:
-        m = mw.col.models.by_name(model_name)
+        model = mw.col.models.by_name(model_name)
 
-        if m == None:
+        if model == None:
             continue
 
-        mid = m['id']
+        mid = model['id']
         query = "mid:%s" % (mid)
         res = mw.col.find_notes(query)
 
         if len(res) == 0:
             continue
 
-
-        if "Audio Sound" not in mw.col.models.field_names(m):
-            mw.progress.start()
-            fm = mw.col.models.new_field("Audio Sound")
-            mw.col.models.addField(m, fm)
-            mw.col.models.save(m)
-            mw.progress.finish()
-
-        if "Video Sound" not in mw.col.models.field_names(m) and m["name"] in ["movies2anki (add-on)", "movies2anki - subs2srs (video)"]:
-            mw.progress.start()
-            fm = mw.col.models.new_field("Video Sound")
-            mw.col.models.addField(m, fm)
-            mw.col.models.save(m)
-            mw.progress.finish()
-
         nids = sorted(res)
         for nid in nids:
             note = mw.col.get_note(nid)
 
-            if note["Audio Sound"] == "" or not os.path.exists(os.path.join(mw.col.media.dir(), note["Audio"])):
+            audio_filename = note["Audio"]
+            m = re.search(r'\[sound:(.+?)\]', audio_filename)
+            if m:
+                audio_filename = m.group(1)
+
+            video_filename = note["Video"]
+            m = re.search(r'\[sound:(.+?)\]', video_filename)
+            if m:
+                video_filename = m.group(1)
+
+            if ("Audio Sound" in note and note["Audio Sound"] == "") or not os.path.exists(os.path.join(mw.col.media.dir(), audio_filename)):
                 data.append(note)
-            elif m["name"] in ["movies2anki (add-on)", "movies2anki - subs2srs (video)"] and (note["Video Sound"] == "" or not os.path.exists(os.path.join(mw.col.media.dir(), note["Video"]))):
+            elif model["name"] in ["movies2anki (add-on)", "movies2anki - subs2srs (video)"] and \
+                (("Video Sound" in note and note["Video Sound"] == "") or not os.path.exists(os.path.join(mw.col.media.dir(), video_filename))):
                 data.append(note)
 
     if len(data) == 0:
@@ -977,7 +1005,7 @@ def update_media():
                         if m and not title:
                             title = m.group(1)
                     idx = int(idx)
-                    
+
                     if not language:
                         language = 'und'
 

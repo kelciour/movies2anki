@@ -1094,14 +1094,15 @@ class Model(object):
         mw.col.models.addField(model, mw.col.models.new_field("Source"))
         mw.col.models.addField(model, mw.col.models.new_field("Path"))
         mw.col.models.addField(model, mw.col.models.new_field("Audio"))
-        mw.col.models.addField(model, mw.col.models.new_field("Video"))
+        if "subs2srs (video)" in self.model_name:
+            mw.col.models.addField(model, mw.col.models.new_field("Video"))
         mw.col.models.addField(model, mw.col.models.new_field("Expression"))
         mw.col.models.addField(model, mw.col.models.new_field("Meaning"))
         mw.col.models.addField(model, mw.col.models.new_field("Notes"))
         if "subs2srs (audio)" not in self.model_name:
             mw.col.models.addField(model, mw.col.models.new_field("Snapshot"))
-        if "subs2srs (video)" in self.model_name:
-            mw.col.models.addField(model, mw.col.models.new_field("Video Sound"))
+        # if "subs2srs (video)" in self.model_name:
+        #     mw.col.models.addField(model, mw.col.models.new_field("Video Sound"))
 
         t = mw.col.models.new_template("Card 1")
         if self.model_name == "movies2anki - subs2srs (video)":
@@ -1181,7 +1182,8 @@ class Model(object):
             note["Path"] = self.video_file
             # note["Audio"] = "[sound:" + sound + "]"
             note["Audio"] = sound
-            note["Video"] = video
+            if 'subs2srs' not in self.model_name or 'subs2srs (video)' in self.model_name:
+                note["Video"] = video
             en_sub = re.sub(r'(\s|<br>)+$', '', en_sub)
             en_sub = re.sub(r'^(\s|<br>)+', '', en_sub)
             en_sub = re.sub(r', - ', ', ', en_sub)

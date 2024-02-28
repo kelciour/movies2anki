@@ -1,5 +1,5 @@
 front_template = """
-<div>[sound:{{Video}}]</div>
+<div>{{play:Video}}</div>
 """
 
 back_template = """
@@ -17,7 +17,7 @@ back_template = """
 <div class="notes">{{Notes}}</div>
 {{/Notes}}
 
-<div>[sound:{{Audio}}]</div>
+<div>{{play:Audio}}</div>
 """
 
 css = """
@@ -92,13 +92,13 @@ hr#answer {
 subs2srs_front_template = """
 <div class="snapshot">{{Snapshot}}</div>
 
-<div class="media">[sound:{{Audio}}]</div>
+<div class="media">{{play:Audio}}</div>
 """
 
 subs2srs_back_template = """
 <div class="snapshot">{{Snapshot}}</div>
 
-<div class="media">[sound:{{Audio}}]</div>
+<div class="media">{{play:Audio}}</div>
 
 <hr id=answer>
 
@@ -139,7 +139,7 @@ video.addEventListener('error', () => {
 
 function playVideo() {
   if (isVideoError && typeof pycmd !== 'undefined') {
-    return pycmd("ankiplay{{Video}}");
+    return pycmd("ankiplay{{text:Id}}.mp4");
   } else {
     video.currentTime = 0;
     video.play();
@@ -195,7 +195,7 @@ subs2srs_video_back_template = """
   <div class="notes">{{Notes}}</div>
   {{/Notes}}
 
-  <div class="media">[sound:{{Audio}}]</div>
+  <div class="media">{{play:Audio}}</div>
 
 </div>
 
@@ -209,7 +209,7 @@ video.addEventListener('error', () => {
 
 function playVideo() {
   if (isVideoError && typeof pycmd !== 'undefined') {
-    return pycmd("ankiplay{{Video}}");
+    return pycmd("ankiplay{{text:Id}}.mp4");
   } else {
     video.currentTime = 0;
     video.play();
@@ -276,11 +276,11 @@ hr#answer {
 #  ------------------------------------- #
 
 subs2srs_audio_front_template = """
-<div class="media">[sound:{{Audio}}]</div>
+<div class="media">{{play:Audio}}</div>
 """
 
 subs2srs_audio_back_template = """
-<div class="media">[sound:{{Audio}}]</div>
+<div class="media">{{play:Audio}}</div>
 
 <hr>
 
