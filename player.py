@@ -246,10 +246,10 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
                     args += ["--af=afade=t=out:st=%s:d=%s" % (time_end - af_d, af_d)]
 
     fullpath = fields["Path"]
+    aid = "auto"
     if path is not None and os.path.exists(path) and isEnd == True and not any([state, isPrev, isNext]):
         fullpath = path
         args = list(default_args)
-        aid = "auto"
     else:
         try:
             m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
