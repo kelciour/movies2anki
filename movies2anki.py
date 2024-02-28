@@ -1860,6 +1860,8 @@ class MainDialog(QDialog):
         if not os.path.isfile(self.model.video_file):
             return
 
+        self.deckComboBox.lineEdit().setText(os.path.splitext(os.path.basename(self.model.video_file))[0])
+
         self.directory = os.path.dirname(self.model.video_file)
         self.model.input_directory = self.directory
 
@@ -1872,8 +1874,6 @@ class MainDialog(QDialog):
             self.model.out_ru_srt = self.model.video_file[:-3] + self.model.out_ru_srt
 
         self.changeSubtitles()
-
-        self.setDeckName()
 
     def changeEngSubs(self):
         self.model.en_srt = self.subsEngEdit.text().strip()
@@ -1915,9 +1915,6 @@ class MainDialog(QDialog):
         self.model.mode = "Phrases"
 
     def setDeckName(self):
-        if self.deckComboBox.currentText().strip() == "":
-            self.deckComboBox.lineEdit().setText(os.path.splitext(os.path.basename(self.model.video_file))[0])
-
         self.model.deck_name = self.deckComboBox.currentText().strip()
 
     def validateSubtitles(self):
