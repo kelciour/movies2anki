@@ -153,7 +153,7 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         prev_card_audio = prev_card.note()["Audio"]
         next_card_audio = next_card.note()["Audio"]
 
-        # TODO compare Id field prefix or Source field or limit search by Source or maybe something else
+        # TODO compare Id field prefix or Path field or limit search by Path or maybe something else
 
         m = re.fullmatch(r".*?_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*", prev_card_audio)
 
@@ -454,8 +454,8 @@ def joinCard(isPrev=False, isNext=False):
         prev_card = mw.col.getCard(cards[prev_card_idx]).note()
         next_card = mw.col.getCard(cards[next_card_idx]).note()
 
-        if (isPrev and prev_card["Source"] != curr_card["Source"]) or (isNext and curr_card["Source"] != next_card["Source"]):
-           showInfo("Cards can't be joined due to the Source field difference.")
+        if (isPrev and prev_card["Path"] != curr_card["Path"]) or (isNext and curr_card["Path"] != next_card["Path"]):
+           showInfo("Cards can't be joined due to the Path field difference.")
            return
 
         curr_card_audio = curr_card["Audio"]
@@ -496,8 +496,6 @@ def joinCard(isPrev=False, isNext=False):
                 c[name] = "%s_%s-%s.mp3" % (card_prefix, secondsToTime(time_start), secondsToTime(time_end))
             elif name == "Video":
                 c[name] = "%s_%s-%s.%s" % (card_prefix, secondsToTime(time_start), secondsToTime(time_end), config['video extension'])
-            elif name == "Source":
-                pass
             elif name == "Path":
                 pass
             elif name == "Audio Sound":

@@ -1073,7 +1073,6 @@ class Model(object):
         mw.col.models.addField(model, mw.col.models.new_field("Notes"))
         mw.col.models.addField(model, mw.col.models.new_field("Audio"))
         mw.col.models.addField(model, mw.col.models.new_field("Video"))
-        mw.col.models.addField(model, mw.col.models.new_field("Source"))
         mw.col.models.addField(model, mw.col.models.new_field("Path"))
         t = mw.col.models.new_template("Card 1")
         t['qfmt'] = styles.front_template.strip()
@@ -1099,7 +1098,6 @@ class Model(object):
         mw.col.models.addField(model, mw.col.models.new_field("Audio"))
         if "subs2srs (video)" in self.model_name:
             mw.col.models.addField(model, mw.col.models.new_field("Video"))
-        mw.col.models.addField(model, mw.col.models.new_field("Source"))
         mw.col.models.addField(model, mw.col.models.new_field("Path"))
         # if "subs2srs (video)" in self.model_name:
         #     mw.col.models.addField(model, mw.col.models.new_field("Video Sound"))
@@ -1178,7 +1176,6 @@ class Model(object):
             note = mw.col.newNote(forDeck=False)
 
             note["Id"] = prefix + "_" + start_time + "-" + end_time
-            note["Source"] = os.path.splitext(os.path.basename(self.video_file))[0]
             note["Path"] = self.video_file
             # note["Audio"] = "[sound:" + sound + "]"
             note["Audio"] = sound
