@@ -602,6 +602,8 @@ class MediaWorker(QThread):
             m = re.search(r'\[sound:(.+?)\]', audio_filename)
             if m:
                 audio_filename = m.group(1)
+            elif "Audio Sound" not in note and os.path.exists(os.path.join(mw.col.media.dir(), audio_filename)):
+                self.updateNote.emit(str(note.id), "Audio", "[sound:%s]" % audio_filename)
 
             af_params = default_af_params
             if NORMALIZE_AUDIO and not (NORMALIZE_AUDIO_WITH_MP3GAIN and mp3gain_executable):
@@ -680,6 +682,9 @@ class MediaWorker(QThread):
                 m = re.search(r'\[sound:(.+?)\]', video_filename)
                 if m:
                     video_filename = m.group(1)
+                elif "Video Sound" not in note and os.path.exists(os.path.join(mw.col.media.dir(), video_filename)):
+                    self.updateNote.emit(str(note.id), "Video", "[sound:%s]" % video_filename)
+
             if ("Video Sound" in note and (note["Video Sound"] == "") or (video_filename != "" and not os.path.exists(os.path.join(mw.col.media.dir(), video_filename)))):
                 self.fp = None
                 if ffmpeg_executable:
