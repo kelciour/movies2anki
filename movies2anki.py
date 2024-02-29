@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # import the main window object (mw) from aqt
-from aqt import mw
+from aqt import mw, gui_hooks
 # import the "get file" tool from utils.py
 from aqt.qt import *
 
@@ -838,6 +838,16 @@ def create_or_clean_collection_dir(directory):
 
     return True
 
+media_db_path = os.path.join(os.path.dirname(__file__), "user_files", "media.db")
+
+def load_media_db():
+    with open(media_db_path, 'r', encoding='utf-8') as f_db:
+        return json.load(f_db)
+
+def save_media_db(data):
+    with open(media_db_path, 'w', encoding='utf-8') as f_db:
+        json.dump(data, f_db)
+
 class Model(object):
     def __init__(self):
         self.video_file = ""
@@ -860,7 +870,11 @@ class Model(object):
 
         self.p = None
 
+        self.config = mw.addonManager.getConfig(__name__)
+
         self.load_settings()
+
+        self.media_db = load_media_db()
 
     def default_settings(self):
         self.input_directory = os.path.expanduser("~")
@@ -899,8 +913,6 @@ class Model(object):
 
     def load_settings(self):
         self.default_settings()
-
-        self.config = mw.addonManager.getConfig(__name__)
 
         if 'video width' in self.config:
             self.video_width = self.config["video width"]
@@ -1118,14 +1130,12 @@ class Model(object):
         prefix = format_filename(os.path.splitext(os.path.basename(self.video_file))[0])
 
         video_id = prefix
-        if "~media" not in self.config:
-            self.config["~media"] = {}
-        if video_id not in self.config["~media"]:
-            self.config["~media"][video_id] = {}
-        self.config["~media"][video_id]["path"] = self.video_file
+        if video_id not in self.media_db:
+            self.media_db[video_id] = {}
+        self.media_db[video_id]["path"] = self.video_file
         if self.audio_id != -1:
-            self.config["~media"][video_id]["audio_id"] = self.audio_id
-        mw.addonManager.writeConfig(__name__, self.config)
+            self.media_db[video_id]["audio_id"] = self.audio_id
+        save_media_db(self.media_db)
 
         # filename = os.path.join(directory, prefix + ".tsv")
 
@@ -2503,6 +2513,19 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
         hbox.addLayout(vbox)
 
         return hbox
+
+def move_old_media_db_from_config_to_user_folder():
+    config = mw.addonManager.getConfig(__name__)
+    media_db = load_media_db()
+    if "~media" in config:
+        for video_id in config["~media"]:
+            if video_id not in media_db:
+                media_db[video_id] = config["~media"][video_id]
+        save_media_db(media_db)
+        del config["~media"]
+        mw.addonManager.writeConfig(__name__, config)
+
+gui_hooks.main_window_did_init.append(move_old_media_db_from_config_to_user_folder)
 
 def main():
     mainDialog = MainDialog(mw)

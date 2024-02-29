@@ -19,7 +19,7 @@ from anki.template import TemplateRenderContext
 from anki.utils import no_bundled_libs, strip_html
 from aqt.reviewer import Reviewer
 from aqt import mw, browser
-from aqt.utils import showWarning, showInfo, tooltip, is_win, is_mac
+from aqt.utils import getFile, showWarning, showInfo, tooltip, is_win, is_mac
 from aqt.qt import *
 from subprocess import check_output, CalledProcessError
 
@@ -247,15 +247,19 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
                 if af_d:
                     args += ["--af=afade=t=out:st=%s:d=%s" % (time_end - af_d, af_d)]
 
+    global media_db
+
+    if media_db is None:
+        load_media_db()
+
     if "Path" in fields and fields["Path"] != '':
         fullpath = fields["Path"]
     else:
         try:
             m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
             video_id = m.group(1)
-            fullpath = config["~media"][video_id]["path"]
+            fullpath = get_path_in_media_db(video_id)
         except:
-            print('PATH NOT FOUND:', fields["Id"])
             return
 
     aid = "auto"
@@ -266,7 +270,7 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         try:
             m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
             video_id = m.group(1)
-            aid = config["~media"][video_id]["audio_id"]
+            aid = media_db[video_id]["audio_id"]
         except:
             pass
 
@@ -438,6 +442,8 @@ def replayVideo(isEnd=True, isPrev=False, isNext=False):
 def joinCard(isPrev=False, isNext=False):
     config = mw.addonManager.getConfig(__name__)
 
+    global media_db
+
     if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
         audio_filename = mw.reviewer.card.note()["Audio"]
         m = re.search(r'\[sound:(.+?)\]', audio_filename)
@@ -475,27 +481,24 @@ def joinCard(isPrev=False, isNext=False):
         else:
             try:
                 m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", prev_card['Id'])
-                prev_card_path = config["~media"][m.group(1)]["path"]
+                prev_card_path = get_path_in_media_db(m.group(1))
             except:
-                print('PATH NOT FOUND:', prev_card_path['Id'])
                 return
         if "Path" in curr_card and curr_card["Path"] != "":
             curr_card_path = curr_card["Path"]
         else:
             try:
                 m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", curr_card['Id'])
-                curr_card_path = config["~media"][m.group(1)]["path"]
+                curr_card_path = get_path_in_media_db(m.group(1))
             except:
-                print('PATH NOT FOUND:', curr_card['Id'])
                 return
         if "Path" in next_card and next_card["Path"] != "":
             next_card_path = next_card["Path"]
         else:
             try:
                 m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", next_card['Id'])
-                next_card_path = config["~media"][m.group(1)]["path"]
+                next_card_path = get_path_in_media_db(m.group(1))
             except:
-                print('PATH NOT FOUND:', next_card['Id'])
                 return
 
         if (isPrev and prev_card_path != curr_card_path) or (isNext and curr_card_path != next_card_path):
@@ -607,6 +610,8 @@ class MediaWorker(QThread):
 
         config = mw.addonManager.getConfig(__name__)
 
+        global media_db
+
         for idx, note in enumerate(self.data):
             if self.canceled:
                 break
@@ -638,9 +643,8 @@ class MediaWorker(QThread):
                 try:
                     m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
                     video_id = m.group(1)
-                    note_video_path = config["~media"][video_id]["path"]
+                    note_video_path = get_path_in_media_db(video_id)
                 except:
-                    print("PATH NOT FOUND:", note["Id"])
                     continue
 
             audio_id = self.map_ids[note_video_path]
@@ -917,6 +921,40 @@ def on_play_filter(text, field, filter, context: TemplateRenderContext):
 
 hooks.field_filter.append(on_play_filter)
 
+media_db = None
+media_db_path = os.path.join(os.path.dirname(__file__), "user_files", "media.db")
+
+def load_media_db():
+    global media_db
+    with open(media_db_path, 'r', encoding='utf-8') as f_db:
+        media_db = json.load(f_db)
+
+def save_media_db():
+    global media_db
+    with open(media_db_path, 'w', encoding='utf-8') as f_db:
+        json.dump(media_db, f_db)
+
+def get_path_in_media_db(video_id):
+    global media_db
+    try:
+        fullpath = media_db[video_id]["path"]
+    except:
+        config = mw.addonManager.getConfig(__name__)
+        if "~input_directory" in config:
+            media_directory = config["~input_directory"]
+        else:
+            media_directory = None
+        fullpath = getFile(mw, title="Select the source video file for '{}'".format(video_id), cb=None, dir=media_directory)
+        if fullpath:
+            if video_id not in media_db:
+                media_db[video_id] = {}
+            media_db[video_id]["path"] = fullpath
+            save_media_db()
+        else:
+            print("PATH IS NOT SET:", video_id)
+            raise Exception("PATH IS NOT SET: " + video_id)
+    return fullpath
+
 def update_media():
     global ffmpeg_executable
 
@@ -927,6 +965,8 @@ def update_media():
         ffmpeg_executable = '/usr/local/bin/ffmpeg'
         if not os.path.exists(ffmpeg_executable):
             ffmpeg_executable = None
+
+    load_media_db()
 
     # if not ffmpeg_executable:
     #     return showWarning(r"""<p>Please install <a href='https://www.ffmpeg.org'>FFmpeg</a>.</p>
@@ -980,6 +1020,40 @@ def update_media():
     if hasattr(mw, 'progressDialog'):
         del mw.progressDialog
 
+    global is_cancel
+    is_cancel = False
+
+    global media_db
+
+    map_ids = {}
+    map_data = {}
+
+    # select the audio stream selected by mpv
+    videos = []
+    for idx, note in enumerate(data):
+        if "Path" in note and note["Path"] != "":
+            video_path = note["Path"]
+        else:
+            try:
+                m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
+                video_id = m.group(1)
+                video_path = get_path_in_media_db(video_id)
+            except:
+                continue
+        if video_path in videos:
+            continue
+        if video_path in map_ids:
+            continue
+        try:
+            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
+            video_id = m.group(1)
+            aid = media_db[video_id]["audio_id"]
+            map_ids[video_path] = aid-1
+            continue
+        except:
+            print(traceback.format_exc())
+            videos.append(video_path)
+
     mw.progressDialog = QProgressDialog()
     mw.progressDialog.setWindowIcon(QIcon(":/icons/anki.png"))
     flags = mw.progressDialog.windowFlags()
@@ -999,40 +1073,6 @@ def update_media():
     is_multi_audio_streams = False
 
     mw.progressDialog.setWindowTitle("[movies2anki] Processing Audio Streams...")
-
-    global is_cancel
-    is_cancel = False
-
-    config = mw.addonManager.getConfig(__name__)
-
-    map_ids = {}
-    map_data = {}
-
-    # select the audio stream selected by mpv
-    videos = []
-    for idx, note in enumerate(data):
-        if "Path" in note and note["Path"] != "":
-            video_path = note["Path"]
-        else:
-            try:
-                m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
-                video_path = config["~media"][m.group(1)]["path"]
-            except:
-                print("PATH NOT FOUND:", note["Id"])
-                continue
-        if video_path in videos:
-            continue
-        if video_path in map_ids:
-            continue
-        try:
-            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
-            video_id = m.group(1)
-            aid = config["~media"][video_id]["audio_id"]
-            map_ids[video_path] = aid-1
-            continue
-        except:
-            print(traceback.format_exc())
-            videos.append(video_path)
 
     for video_path in videos:
         QApplication.instance().processEvents()
