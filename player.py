@@ -247,7 +247,17 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
                 if af_d:
                     args += ["--af=afade=t=out:st=%s:d=%s" % (time_end - af_d, af_d)]
 
-    fullpath = fields["Path"]
+    if "Path" in fields and fields["Path"] != '':
+        fullpath = fields["Path"]
+    else:
+        try:
+            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
+            video_id = m.group(1)
+            fullpath = config["~media"][video_id]["path"]
+        except:
+            print('PATH NOT FOUND:', fields["Id"])
+            return
+
     aid = "auto"
     if path is not None and os.path.exists(path) and isEnd == True and not any([state, isPrev, isNext]):
         fullpath = path
@@ -426,6 +436,8 @@ def replayVideo(isEnd=True, isPrev=False, isNext=False):
         os.chdir(oldcwd)
 
 def joinCard(isPrev=False, isNext=False):
+    config = mw.addonManager.getConfig(__name__)
+
     if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
         audio_filename = mw.reviewer.card.note()["Audio"]
         m = re.search(r'\[sound:(.+?)\]', audio_filename)
@@ -454,8 +466,40 @@ def joinCard(isPrev=False, isNext=False):
         prev_card = mw.col.getCard(cards[prev_card_idx]).note()
         next_card = mw.col.getCard(cards[next_card_idx]).note()
 
-        if (isPrev and prev_card["Path"] != curr_card["Path"]) or (isNext and curr_card["Path"] != next_card["Path"]):
-           showInfo("Cards can't be joined due to the Path field difference.")
+        prev_card_path = ''
+        curr_card_path = ''
+        next_card_path = ''
+
+        if "Path" in prev_card and prev_card["Path"] != "":
+            prev_card_path = prev_card["Path"]
+        else:
+            try:
+                m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", prev_card['Id'])
+                prev_card_path = config["~media"][m.group(1)]["path"]
+            except:
+                print('PATH NOT FOUND:', prev_card_path['Id'])
+                return
+        if "Path" in curr_card and curr_card["Path"] != "":
+            curr_card_path = curr_card["Path"]
+        else:
+            try:
+                m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", curr_card['Id'])
+                curr_card_path = config["~media"][m.group(1)]["path"]
+            except:
+                print('PATH NOT FOUND:', curr_card['Id'])
+                return
+        if "Path" in next_card and next_card["Path"] != "":
+            next_card_path = next_card["Path"]
+        else:
+            try:
+                m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", next_card['Id'])
+                next_card_path = config["~media"][m.group(1)]["path"]
+            except:
+                print('PATH NOT FOUND:', next_card['Id'])
+                return
+
+        if (isPrev and prev_card_path != curr_card_path) or (isNext and curr_card_path != next_card_path):
+           showInfo("Cards can't be joined due to the difference in Path.")
            return
 
         curr_card_audio = curr_card["Audio"]
@@ -588,12 +632,23 @@ class MediaWorker(QThread):
             else:
                 default_af_params = ""
 
-            audio_id = self.map_ids[note["Path"]]
+            if "Path" in note and note["Path"] != "":
+                note_video_path = note["Path"]
+            else:
+                try:
+                    m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
+                    video_id = m.group(1)
+                    note_video_path = config["~media"][video_id]["path"]
+                except:
+                    print("PATH NOT FOUND:", note["Id"])
+                    continue
+
+            audio_id = self.map_ids[note_video_path]
 
             video_width = config["video width"]
             video_height = config["video height"]
 
-            video_source = os.path.splitext(os.path.basename(note["Path"]))[0]
+            video_source = os.path.splitext(os.path.basename(note_video_path))[0]
             self.updateProgressText.emit(video_source + "  " + ss)
 
             audio_filename = note["Audio"]
@@ -605,7 +660,7 @@ class MediaWorker(QThread):
 
             af_params = default_af_params
             if NORMALIZE_AUDIO and not (NORMALIZE_AUDIO_WITH_MP3GAIN and mp3gain_executable):
-                cmd = [ffmpeg_executable, "-ss", ss, "-i", note["Path"], "-t", str(t), "-af", "loudnorm=%s:print_format=json" % NORMALIZE_AUDIO_FILTER, "-f", "null", "-"]
+                cmd = [ffmpeg_executable, "-ss", ss, "-i", note_video_path, "-t", str(t), "-af", "loudnorm=%s:print_format=json" % NORMALIZE_AUDIO_FILTER, "-f", "null", "-"]
                 logger.debug('normalize_audio: {}'.format('Started'))
                 logger.debug('normalize_audio: {}'.format(join_and_add_double_quotes(cmd)))
                 with no_bundled_libs():
@@ -632,7 +687,7 @@ class MediaWorker(QThread):
             if ("Audio Sound" in note and note["Audio Sound"] == "") or not os.path.exists(os.path.join(mw.col.media.dir(), audio_filename)):
                 self.fp = None
                 if ffmpeg_executable:
-                    cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
+                    cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note_video_path, "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
                     if af_params:
                         cmd += ["-af", af_params]
                     cmd += ["-sn"]
@@ -640,7 +695,7 @@ class MediaWorker(QThread):
                     cmd += ["-map", "0:a:{}".format(audio_id)]
                     cmd += [audio_filename]
                 else:
-                    cmd = [mpv_executable, note["Path"]]
+                    cmd = [mpv_executable, note_video_path]
                     # cmd += ["--include=%s" % self.mpvConf]
                     cmd += ["--start=%s" % ss, "--length=%s" % "{:.3f}".format(t)]
                     cmd += ["--aid=%d" % (audio_id + 1)]
@@ -686,7 +741,7 @@ class MediaWorker(QThread):
             if ("Video Sound" in note and (note["Video Sound"] == "") or (video_filename != "" and not os.path.exists(os.path.join(mw.col.media.dir(), video_filename)))):
                 self.fp = None
                 if ffmpeg_executable:
-                    cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note["Path"], "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
+                    cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note_video_path, "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
                     if af_params:
                         cmd += ["-af", af_params]
                     cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-ac", "2", "-vf", "scale='min(%s,iw)':'min(%s,ih)',setsar=1" % (video_width, video_height)]
@@ -701,7 +756,7 @@ class MediaWorker(QThread):
                         cmd += ['-movflags', '+faststart']
                     cmd += [video_filename]
                 else:
-                    cmd = [mpv_executable, note["Path"]]
+                    cmd = [mpv_executable, note_video_path]
                     # cmd += ["--include=%s" % self.mpvConf]
                     cmd += ["--start=%s" % ss, "--length=%s" % "{:.3f}".format(t)]
                     cmd += ["--sub=no"]
@@ -956,7 +1011,15 @@ def update_media():
     # select the audio stream selected by mpv
     videos = []
     for idx, note in enumerate(data):
-        video_path = note["Path"]
+        if "Path" in note and note["Path"] != "":
+            video_path = note["Path"]
+        else:
+            try:
+                m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
+                video_path = config["~media"][m.group(1)]["path"]
+            except:
+                print("PATH NOT FOUND:", note["Id"])
+                continue
         if video_path in videos:
             continue
         if video_path in map_ids:

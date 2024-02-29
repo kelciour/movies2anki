@@ -1073,7 +1073,6 @@ class Model(object):
         mw.col.models.addField(model, mw.col.models.new_field("Notes"))
         mw.col.models.addField(model, mw.col.models.new_field("Audio"))
         mw.col.models.addField(model, mw.col.models.new_field("Video"))
-        mw.col.models.addField(model, mw.col.models.new_field("Path"))
         t = mw.col.models.new_template("Card 1")
         t['qfmt'] = styles.front_template.strip()
         t['afmt'] = styles.back_template.strip()
@@ -1098,7 +1097,6 @@ class Model(object):
         mw.col.models.addField(model, mw.col.models.new_field("Audio"))
         if "subs2srs (video)" in self.model_name:
             mw.col.models.addField(model, mw.col.models.new_field("Video"))
-        mw.col.models.addField(model, mw.col.models.new_field("Path"))
         # if "subs2srs (video)" in self.model_name:
         #     mw.col.models.addField(model, mw.col.models.new_field("Video Sound"))
 
@@ -1120,13 +1118,14 @@ class Model(object):
         prefix = format_filename(os.path.splitext(os.path.basename(self.video_file))[0])
 
         video_id = prefix
+        if "~media" not in self.config:
+            self.config["~media"] = {}
+        if video_id not in self.config["~media"]:
+            self.config["~media"][video_id] = {}
+        self.config["~media"][video_id]["path"] = self.video_file
         if self.audio_id != -1:
-            if "~media" not in self.config:
-                self.config["~media"] = {}
-            if video_id not in self.config["~media"]:
-                self.config["~media"][video_id] = {}
             self.config["~media"][video_id]["audio_id"] = self.audio_id
-            mw.addonManager.writeConfig(__name__, self.config)
+        mw.addonManager.writeConfig(__name__, self.config)
 
         # filename = os.path.join(directory, prefix + ".tsv")
 
@@ -1176,7 +1175,6 @@ class Model(object):
             note = mw.col.newNote(forDeck=False)
 
             note["Id"] = prefix + "_" + start_time + "-" + end_time
-            note["Path"] = self.video_file
             # note["Audio"] = "[sound:" + sound + "]"
             note["Audio"] = sound
             if 'subs2srs' not in self.model_name or 'subs2srs (video)' in self.model_name:
