@@ -112,6 +112,8 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
             path = fields["Video"]
 
     path = strip_html(path)
+    path = path.replace('[sound:', '')
+    path = path.replace(']', '')
 
     # elif path.endswith(".mp3"): # workaround to fix replay button (R) without refreshing webview.
     #     path = fields["Audio"]
@@ -178,20 +180,22 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
             time_start = time_start - shift
         elif state == "end":
             time_end = time_end + shift
-        elif state == "start reset":
-            m = re.match(r"^.*?_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
-            id_time_start, id_time_end = m.groups()
-            id_time_start = timeToSeconds(id_time_start)
-            time_start = id_time_start
-        elif state == "end reset":
-            m = re.match(r"^.*?_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
-            id_time_start, id_time_end = m.groups()
-            id_time_end = timeToSeconds(id_time_end)
-            time_end = id_time_end
+        # elif state == "start reset":
+        #     m = re.match(r"^.*?_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
+        #     id_time_start, id_time_end = m.groups()
+        #     id_time_start = timeToSeconds(id_time_start)
+        #     time_start = id_time_start
+        # elif state == "end reset":
+        #     m = re.match(r"^.*?_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
+        #     id_time_start, id_time_end = m.groups()
+        #     id_time_end = timeToSeconds(id_time_end)
+        #     time_end = id_time_end
 
         time_interval = "%s-%s" % (secondsToTime(time_start), secondsToTime(time_end))
+        mw.reviewer.card.note()["Id"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Id"])
         mw.reviewer.card.note()["Audio"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Audio"])
-        mw.reviewer.card.note()["Video"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Video"])
+        if "Video" in mw.reviewer.card.note():
+            mw.reviewer.card.note()["Video"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Video"])
         mw.reviewer.card.note().flush()
 
     if VLC_DIR:
@@ -417,8 +421,8 @@ def shortcutKeys(self):
         (".", lambda: adjustAudio("start", -1.0 * ADJUST_AUDIO_STEP)),
         ("Shift+,", lambda: adjustAudio("end", -1.0 * ADJUST_AUDIO_STEP)),
         ("Shift+.", lambda: adjustAudio("end", ADJUST_AUDIO_STEP)),
-        ("Ctrl+Shift+,", lambda: adjustAudio("start reset")),
-        ("Ctrl+Shift+.", lambda: adjustAudio("end reset")),
+        # ("Ctrl+Shift+,", lambda: adjustAudio("start reset")),
+        # ("Ctrl+Shift+.", lambda: adjustAudio("end reset")),
 
         ("Ctrl+R", replayVideo),
         ("Shift+R", lambda: replayVideo(isEnd=False)),
@@ -449,9 +453,13 @@ def joinCard(isPrev=False, isNext=False):
         m = re.search(r'\[sound:(.+?)\]', audio_filename)
         if m:
             audio_filename = m.group(1)
+        audio_filename = audio_filename.replace('[sound:', '')
+        audio_filename = audio_filename.replace(']', '')
+
         m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", audio_filename)
 
         card_prefix, time_start, time_end = m.groups()
+
         time_start = timeToSeconds(time_start)
         time_end = timeToSeconds(time_end)
 
@@ -659,8 +667,15 @@ class MediaWorker(QThread):
             m = re.search(r'\[sound:(.+?)\]', audio_filename)
             if m:
                 audio_filename = m.group(1)
-            elif "Audio Sound" not in note and os.path.exists(os.path.join(mw.col.media.dir(), audio_filename)):
-                self.updateNote.emit(str(note.id), "Audio", "[sound:%s]" % audio_filename)
+            audio_filename = audio_filename.replace('[sound:', '')
+            audio_filename = audio_filename.replace(']', '')
+
+            if os.path.exists(os.path.join(mw.col.media.dir(), audio_filename)):
+                if "Audio Sound" in note:
+                    if '[sound:' not in note["Audio Sound"]:
+                        self.updateNote.emit(str(note.id), "Audio Sound", "[sound:%s]" % audio_filename)
+                elif '[sound:' not in note["Audio"]:
+                    self.updateNote.emit(str(note.id), "Audio", "[sound:%s]" % audio_filename)
 
             af_params = default_af_params
             if NORMALIZE_AUDIO and not (NORMALIZE_AUDIO_WITH_MP3GAIN and mp3gain_executable):
@@ -739,8 +754,14 @@ class MediaWorker(QThread):
                 m = re.search(r'\[sound:(.+?)\]', video_filename)
                 if m:
                     video_filename = m.group(1)
-                elif "Video Sound" not in note and os.path.exists(os.path.join(mw.col.media.dir(), video_filename)):
-                    self.updateNote.emit(str(note.id), "Video", "[sound:%s]" % video_filename)
+                video_filename = video_filename.replace('[sound:', '')
+                video_filename = video_filename.replace(']', '')
+                if os.path.exists(os.path.join(mw.col.media.dir(), video_filename)):
+                    if "Video Sound" in note:
+                        if '[sound:' not in note["Video Sound"]:
+                            self.updateNote.emit(str(note.id), "Video Sound", "[sound:%s]" % video_filename)
+                    elif '[sound:' not in note["Video"]:
+                        self.updateNote.emit(str(note.id), "Video", "[sound:%s]" % video_filename)
 
             if ("Video Sound" in note and (note["Video Sound"] == "") or (video_filename != "" and not os.path.exists(os.path.join(mw.col.media.dir(), video_filename)))):
                 self.fp = None
@@ -1000,6 +1021,8 @@ def update_media():
             m = re.search(r'\[sound:(.+?)\]', audio_filename)
             if m:
                 audio_filename = m.group(1)
+            audio_filename = audio_filename.replace('[sound:', '')
+            audio_filename = audio_filename.replace(']', '')
 
             video_filename = ""
             if "Video" in note:
@@ -1007,6 +1030,8 @@ def update_media():
                 m = re.search(r'\[sound:(.+?)\]', video_filename)
                 if m:
                     video_filename = m.group(1)
+                video_filename = video_filename.replace('[sound:', '')
+                video_filename = video_filename.replace(']', '')
 
             if ("Audio Sound" in note and note["Audio Sound"] == "") or not os.path.exists(os.path.join(mw.col.media.dir(), audio_filename)):
                 data.append(note)
@@ -1213,17 +1238,19 @@ update_media_action = QAction("Generate Mobile Cards...", mw)
 update_media_action.triggered.connect(update_media)
 mw.form.menuTools.addAction(update_media_action)
 
+# def on_card_answer(reviewer, card, ease):
+#     note = mw.col.get_note(card.nid)
+#     if not note.note_type()["name"].startswith("movies2anki"):
+#         return
+#     audio_filename = note["Audio"]
+#     audio_filename = audio_filename.replace('[sound:', '')
+#     audio_filename = audio_filename.replace(']', '')
+#     if note["Id"] != audio_filename[:-4]:
+#         note["Id"] = audio_filename[:-4]
+#         note.flush()
 
-def on_card_answer(reviewer, card, ease):
-    note = mw.col.get_note(card.nid)
-    if not note.note_type()["name"].startswith("movies2anki"):
-        return
-    if note["Id"] != note["Audio"][:-4]:
-        note["Id"] = note["Audio"][:-4]
-        note.flush()
-
-try:
-    from aqt import gui_hooks
-    gui_hooks.reviewer_did_answer_card.append(on_card_answer)
-except:
-    pass
+# try:
+#     from aqt import gui_hooks
+#     gui_hooks.reviewer_did_answer_card.append(on_card_answer)
+# except:
+#     pass
