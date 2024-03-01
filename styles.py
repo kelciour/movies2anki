@@ -32,7 +32,7 @@ css = """
 .expression {
  font-size: 20px;
  margin-top: 15px;
- margin-bottom: 10px;
+ margin-bottom: 9px;
 }
 
 .meaning {
@@ -52,7 +52,7 @@ css = """
 }
 
 .snapshot {
- margin-bottom: 9px;
+ margin-bottom: 13px;
 }
 
 img {
@@ -270,7 +270,8 @@ video {
 }
 
 .mobile #content .back {
- margin: 15px;
+ margin: 10px;
+ margin-top: 5px;
 }
 """
 
