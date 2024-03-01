@@ -696,13 +696,13 @@ class MediaWorker(QThread):
                         cmd += ["-af", af_params]
                     cmd += ["-sn"]
                     cmd += ["-map_metadata", "-1"]
-                    cmd += ["-map", "0:a:{}".format(audio_id)]
+                    cmd += ["-map", "0:a:{}".format(audio_id-1)]
                     cmd += [audio_filename]
                 else:
                     cmd = [mpv_executable, note_video_path]
                     # cmd += ["--include=%s" % self.mpvConf]
                     cmd += ["--start=%s" % ss, "--length=%s" % "{:.3f}".format(t)]
-                    cmd += ["--aid=%d" % (audio_id + 1)]
+                    cmd += ["--aid=%d" % (audio_id)]
                     cmd += ["--video=no"]
                     cmd += ["--no-ocopy-metadata"]
                     cmd += ["--af=afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(time_start_seconds, af_d, time_end_seconds - af_d, af_d)]
@@ -748,7 +748,7 @@ class MediaWorker(QThread):
                     cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note_video_path, "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
                     if af_params:
                         cmd += ["-af", af_params]
-                    cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id), "-ac", "2", "-vf", "scale='min(%s,iw)':'min(%s,ih)',setsar=1" % (video_width, video_height)]
+                    cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id-1), "-ac", "2", "-vf", "scale='min(%s,iw)':'min(%s,ih)',setsar=1" % (video_width, video_height)]
                     cmd += ["-pix_fmt", "yuv420p"]
                     cmd += ["-sn"]
                     cmd += ["-map_metadata", "-1"]
@@ -765,7 +765,7 @@ class MediaWorker(QThread):
                     cmd += ["--start=%s" % ss, "--length=%s" % "{:.3f}".format(t)]
                     cmd += ["--sub=no"]
                     cmd += ["--no-ocopy-metadata"]
-                    cmd += ["--aid=%d" % (audio_id + 1)]
+                    cmd += ["--aid=%d" % (audio_id)]
                     cmd += ["--af=afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(time_start_seconds, af_d, time_end_seconds - af_d, af_d)]
                     cmd += ["--vf-add=lavfi=[scale='min(%s,iw)':'min(%s,ih)',setsar=1]" % (video_width, video_height)]
                     if video_filename.endswith('.webm'):
@@ -876,13 +876,14 @@ class AudioInfo(QDialog):
                 if not lang:
                     lang = 'und'
                 if audio_tracks[i]['selected'] == 'yes':
+                    self.map_ids[video_path] = i
                     i_selected = i - 1
                 item_title = '{}: {}'.format(i, lang)
                 if title:
                     item_title += ' ({})'.format(title)
                 btn_cbox.addItem(item_title)
             btn_cbox.setCurrentIndex(i_selected)
-            btn_cbox.currentIndexChanged.connect(lambda i: self.setAudioStream(video_path, i))
+            btn_cbox.currentIndexChanged.connect(lambda x, vp=video_path: self.setAudioStream(vp, x))
             grid.addWidget(btn_label, idx + 1, 1)
             grid.addWidget(btn_cbox, idx + 1, 2)
 
@@ -902,7 +903,7 @@ class AudioInfo(QDialog):
         self.setMinimumWidth(450)
 
     def setAudioStream(self, video_path, i):
-        self.map_ids[video_path] = i
+        self.map_ids[video_path] = i+1
 
     def ok(self):
         self.done(1)
@@ -1048,7 +1049,7 @@ def update_media():
             m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
             video_id = m.group(1)
             aid = media_db[video_id]["audio_id"]
-            map_ids[video_path] = aid-1
+            map_ids[video_path] = aid
             continue
         except:
             print(traceback.format_exc())
@@ -1084,7 +1085,7 @@ def update_media():
 
         mw.progressDialog.setValue((idx * 1.0 / len(videos)) * 100)
 
-        ffmpeg_audio_id = -1
+        audio_id = -1
         with no_bundled_libs():
             audio_tracks = {}
             try:
@@ -1117,6 +1118,9 @@ def update_media():
                             title = m.group(1)
                     idx = int(idx)
 
+                    if is_selected:
+                        audio_id = idx
+
                     if not language:
                         language = 'und'
 
@@ -1125,13 +1129,10 @@ def update_media():
                     else:
                         stream = "%i: [%s]" % (idx, language)
 
-                    ffmpeg_audio_id = idx - 1
-
                     audio_tracks[idx] = {
                         'title': title,
                         'lang': language,
-                        'selected': 'yes' if is_selected else '',
-                        'ffmpeg-index': ffmpeg_audio_id
+                        'selected': 'yes' if is_selected else ''
                     }
                 if len(audio_tracks) > 1:
                     is_multi_audio_streams = True
@@ -1139,7 +1140,7 @@ def update_media():
                 print(traceback.format_exc())
                 if os.environ.get("ADDON_DEBUG"):
                     input('Press any key to continue...')
-            if ffmpeg_audio_id == -1:
+            if len(audio_tracks) == 0:
                 # select the last audio stream
                 audio_tracks = {}
                 cmd = [ffprobe_executable, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-select_streams", "a", video_path]
@@ -1151,23 +1152,22 @@ def update_media():
                 output = check_output(cmd, startupinfo=info, encoding='utf-8')
                 logger.debug('ffprobe audio_streams: {}, {}'.format('Finished', output))
                 json_data = json.loads(output)
-                for idx, stream in enumerate(json_data["streams"]):
-                    ffmpeg_audio_id = idx
+                for idx, stream in enumerate(json_data["streams"], 1):
                     stream_tags = stream.get('tags', {})
                     audio_tracks[idx] = {
                         'title': stream_tags.get('title', ''),
                         'lang': stream_tags.get('language', ''),
                         'selected': '',
-                        'ffmpeg-index': stream["index"]
+                        # 'ffmpeg-index': stream["index"]
                     }
                 if len(json_data["streams"]):
                     is_multi_audio_streams = True
-        if ffmpeg_audio_id < 0:
-            ffmpeg_audio_id = 0
+        if audio_id <= 0:
+            audio_id = 1
 
-        map_ids[video_path] = ffmpeg_audio_id
+        map_ids[video_path] = audio_id
         map_data[video_path] = audio_tracks
-        logger.debug(f'audio_id: {ffmpeg_audio_id}')
+        logger.debug(f'audio_id: {audio_id}')
 
     if is_cancel:
         return
@@ -1178,7 +1178,8 @@ def update_media():
     QApplication.instance().processEvents()
 
     if is_multi_audio_streams:
-        AudioInfo(map_ids, map_data).exec()
+        ai = AudioInfo(map_ids, map_data)
+        ai.exec()
 
     mw.progressDialog.setWindowTitle("[movies2anki] Generating Media...")
     mw.progressDialog.setValue(0)
