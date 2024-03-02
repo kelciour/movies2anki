@@ -64,6 +64,7 @@ img {
 
 .media {
  margin: 4px;
+ margin-top: 12px;
 }
 
 hr#answer {
