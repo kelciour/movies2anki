@@ -991,10 +991,12 @@ def update_media():
                 video_filename = video_filename.replace('[sound:', '')
                 video_filename = video_filename.replace(']', '')
 
-            if ("Audio Sound" in note and note["Audio Sound"] == "") or not os.path.exists(os.path.join(mw.col.media.dir(), audio_filename)):
+            audio_path = os.path.join(mw.col.media.dir(), audio_filename)
+            video_path = os.path.join(mw.col.media.dir(), video_filename)
+            if ("Audio Sound" in note and note["Audio Sound"] == "") or ("Audio Sound" not in note and ('[sound:' not in note["Audio"] or not os.path.exists(audio_path))):
                 data.append(note)
             elif model["name"] in ["movies2anki (add-on)", "movies2anki - subs2srs (video)"] and \
-                (("Video Sound" in note and note["Video Sound"] == "") or (video_filename != "" and not os.path.exists(os.path.join(mw.col.media.dir(), video_filename)))):
+                (("Video Sound" in note and note["Video Sound"] == "") or ("Video Sound" not in note and ('[sound:' not in note["Video"] or not os.path.exists(video_path)))):
                 data.append(note)
 
     if len(data) == 0:
