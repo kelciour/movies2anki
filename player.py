@@ -16,7 +16,7 @@ from anki import hooks
 from anki.lang import _, ngettext
 from anki.hooks import addHook, wrap
 from anki.template import TemplateRenderContext
-from anki.utils import no_bundled_libs, strip_html
+from anki.utils import no_bundled_libs, strip_html, tmpdir
 from aqt.reviewer import Reviewer
 from aqt import mw, browser, gui_hooks
 from aqt.utils import getFile, showWarning, showInfo, tooltip, is_win, is_mac
@@ -711,6 +711,7 @@ class MediaWorker(QThread):
 
             if ("Audio Sound" in note and note["Audio Sound"] == "") or not os.path.exists(os.path.join(mw.col.media.dir(), audio_filename)):
                 self.fp = None
+                audio_temp_filepath = os.path.join(tmpdir(), audio_filename)
                 if ffmpeg_executable:
                     cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note_video_path, "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
                     if af_params:
@@ -718,7 +719,7 @@ class MediaWorker(QThread):
                     cmd += ["-sn"]
                     cmd += ["-map_metadata", "-1"]
                     cmd += ["-map", "0:a:{}".format(audio_id-1)]
-                    cmd += [audio_filename]
+                    cmd += [audio_temp_filepath]
                 else:
                     cmd = [mpv_executable, note_video_path]
                     # cmd += ["--include=%s" % self.mpvConf]
@@ -727,7 +728,7 @@ class MediaWorker(QThread):
                     cmd += ["--video=no"]
                     cmd += ["--no-ocopy-metadata"]
                     cmd += ["--af=afade=t=in:st={:.3f}:d={:.3f},afade=t=out:st={:.3f}:d={:.3f}".format(time_start_seconds, af_d, time_end_seconds - af_d, af_d)]
-                    cmd += ["--o=%s" % audio_filename]
+                    cmd += ["--o=%s" % audio_temp_filepath]
 
                 logger.debug('export_audio: {}'.format('Started'))
                 logger.debug('export_audio: {}'.format(join_and_add_double_quotes(cmd)))
@@ -741,13 +742,17 @@ class MediaWorker(QThread):
                 logger.debug('export_audio: {}'.format('Finished'))
 
                 if NORMALIZE_AUDIO and NORMALIZE_AUDIO_WITH_MP3GAIN and mp3gain_executable:
-                    cmd = [mp3gain_executable, "/f", "/q", "/r", "/k", audio_filename]
+                    cmd = [mp3gain_executable, "/f", "/q", "/r", "/k", audio_temp_filepath]
                     with no_bundled_libs():
                         self.fp = subprocess.Popen(cmd, startupinfo=info, cwd=mw.col.media.dir())
                         self.fp.wait()
 
                 if self.canceled:
                     break
+
+                with open(audio_temp_filepath, "rb") as file:
+                    fdata = file.read()
+                mw.col.media.write_data(audio_filename, fdata)
 
                 if "Audio Sound" in note:
                     self.updateNote.emit(str(note.id), "Audio Sound", "[sound:%s]" % audio_filename)
@@ -771,6 +776,7 @@ class MediaWorker(QThread):
 
             if ("Video Sound" in note and (note["Video Sound"] == "") or (video_filename != "" and not os.path.exists(os.path.join(mw.col.media.dir(), video_filename)))):
                 self.fp = None
+                video_temp_filepath = os.path.join(tmpdir(), video_filename)
                 if ffmpeg_executable:
                     cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note_video_path, "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
                     if af_params:
@@ -785,7 +791,7 @@ class MediaWorker(QThread):
                         cmd += ["-c:v", "libx264"]
                         cmd += ["-profile:v", "main", "-level:v", "3.1"]
                         cmd += ['-movflags', '+faststart']
-                    cmd += [video_filename]
+                    cmd += [video_temp_filepath]
                 else:
                     cmd = [mpv_executable, note_video_path]
                     # cmd += ["--include=%s" % self.mpvConf]
@@ -804,7 +810,7 @@ class MediaWorker(QThread):
                         cmd += ["--vf-add=format=yuv420p"]
                         cmd += ["--oac=aac"]
                         cmd += ["--ofopts=movflags=+faststart"]
-                    cmd += ["--o=%s" % video_filename]
+                    cmd += ["--o=%s" % video_temp_filepath]
                 logger.debug('export_video: {}'.format('Started'))
                 logger.debug('export_video: {}'.format(join_and_add_double_quotes(cmd)))
                 if with_bundled_libs:
@@ -825,6 +831,10 @@ class MediaWorker(QThread):
 
                 if self.canceled:
                     break
+
+                with open(video_temp_filepath, "rb") as file:
+                    fdata = file.read()
+                mw.col.media.write_data(video_filename, fdata)
 
                 if "Video Sound" in note:
                     self.updateNote.emit(str(note.id), "Video Sound", "[sound:%s]" % video_filename)
