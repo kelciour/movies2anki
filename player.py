@@ -18,7 +18,7 @@ from anki.hooks import addHook, wrap
 from anki.template import TemplateRenderContext
 from anki.utils import no_bundled_libs, strip_html
 from aqt.reviewer import Reviewer
-from aqt import mw, browser
+from aqt import mw, browser, gui_hooks
 from aqt.utils import getFile, showWarning, showInfo, tooltip, is_win, is_mac
 from aqt.qt import *
 from subprocess import check_output, CalledProcessError
@@ -411,27 +411,34 @@ def selectVideoPlayer():
 
 addHook("profileLoaded", selectVideoPlayer)
 
-def shortcutKeys(self):
-    shortcuts = DefaultShortcutKeys(self);
-
-    return shortcuts + [
+def addShortcutKeys(state, shortcuts):
+    if state != "review":
+        return
+    shortcuts.extend([
         (",", lambda: adjustAudio("start", ADJUST_AUDIO_STEP)),
         (".", lambda: adjustAudio("start", -1.0 * ADJUST_AUDIO_STEP)),
         ("Shift+,", lambda: adjustAudio("end", -1.0 * ADJUST_AUDIO_STEP)),
         ("Shift+.", lambda: adjustAudio("end", ADJUST_AUDIO_STEP)),
         # ("Ctrl+Shift+,", lambda: adjustAudio("start reset")),
         # ("Ctrl+Shift+.", lambda: adjustAudio("end reset")),
-
         ("Ctrl+R", replayVideo),
         ("Shift+R", lambda: replayVideo(isEnd=False)),
         ("[", lambda: replayVideo(isPrev=True)),
         ("]", lambda: replayVideo(isNext=True)),
         ("Shift+[", lambda: joinCard(isPrev=True)),
         ("Shift+]", lambda: joinCard(isNext=True)),
-    ]
 
-DefaultShortcutKeys = Reviewer._shortcutKeys
-Reviewer._shortcutKeys = shortcutKeys
+        ("б", lambda: adjustAudio("start", ADJUST_AUDIO_STEP)),
+        ("ю", lambda: adjustAudio("start", -1.0 * ADJUST_AUDIO_STEP)),
+        ("Shift+Б", lambda: adjustAudio("end", -1.0 * ADJUST_AUDIO_STEP)),
+        ("Shift+Ю", lambda: adjustAudio("end", ADJUST_AUDIO_STEP)),
+        ("х", lambda: replayVideo(isPrev=True)),
+        ("ъ", lambda: replayVideo(isNext=True)),
+        ("Shift+Х", lambda: joinCard(isPrev=True)),
+        ("Shift+Ъ", lambda: joinCard(isNext=True)),
+    ])
+
+gui_hooks.state_shortcuts_will_change.append(addShortcutKeys)
 
 def replayVideo(isEnd=True, isPrev=False, isNext=False):
     if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
