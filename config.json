@@ -1,5 +1,7 @@
 {
-	"preferred languages": "",
+	"preferred languages for audio": "",
+	"preferred languages for subs 1": "",
+	"preferred languages for subs 2": "",
 	"condensed_audio_collection.media": false,
 	"condensed_audio_output_directory": "",
 	"audio fade in/out": 0.1,

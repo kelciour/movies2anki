@@ -1698,10 +1698,10 @@ class MainDialog(QDialog):
 
     def tryToSetEngAudio(self):
         config = mw.addonManager.getConfig(__name__)
-        if not config["preferred languages"] and self.audio_id_selected > 0:
+        if not config["preferred languages for audio"] and self.audio_id_selected > 0:
             self.audioIdComboBox.setCurrentIndex(self.audio_id_selected - 1)
             return
-        preferred_languages = [a.strip() for a in config["preferred languages"].split(',')]
+        preferred_languages = [a.strip() for a in config["preferred languages for audio"].split(',')]
         eng_id = -1
         for lang in preferred_languages:
             if not lang:
@@ -1829,7 +1829,7 @@ class MainDialog(QDialog):
 
     def changeSubtitles(self):
         config = mw.addonManager.getConfig(__name__)
-        preferred_languages = [a.strip() for a in config["preferred languages"].split(',')]
+        preferred_languages = [a.strip() for a in config["preferred languages for subs 1"].split(',')]
         subs_lang = []
         for lang in preferred_languages:
             subs_lang.append('*[{}].ass'.format(lang))
@@ -1841,7 +1841,18 @@ class MainDialog(QDialog):
         self.model.en_srt = guess_srt_file(self.model.video_file, subs_lang + [".ass", ".srt", ".vtt", "*.srt", "*.ass", "*.vtt"], "")
         self.subsEngEdit.setText(self.model.en_srt)
 
-        self.model.ru_srt = guess_srt_file(self.model.video_file, ["*rus*.srt", "*ru*.srt"], "")
+        preferred_languages = [a.strip() for a in config["preferred languages for subs 2"].split(',')]
+        subs_lang = []
+        for lang in preferred_languages:
+            subs_lang.append('*[{}].ass'.format(lang))
+            subs_lang.append('*[{}].srt'.format(lang))
+            subs_lang.append('*[{}].vtt'.format(lang))
+            subs_lang.append('*{}*.ass'.format(lang))
+            subs_lang.append('*{}*.srt'.format(lang))
+            subs_lang.append('*{}*.vtt'.format(lang))
+        self.model.ru_srt = guess_srt_file(self.model.video_file, subs_lang + ["*rus*.srt", "*ru*.srt"], "")
+        if self.model.ru_srt == self.model.en_srt:
+            self.model.ru_srt = ''
         self.subsRusEdit.setText(self.model.ru_srt)
 
     def changeVideoFile(self):
@@ -2507,3 +2518,18 @@ action.setShortcut(QKeySequence("Ctrl+M"))
 action.triggered.connect(main)
 # mw.form.menuTools.addSeparator()
 mw.form.menuTools.addAction(action)
+
+def update_old_config_settings():
+    config = mw.addonManager.getConfig(__name__)
+    is_updated = False
+    if "preferred languages" in config and config["preferred languages for audio"] == '':
+        config["preferred languages for audio"] = config["preferred languages"]
+        is_updated = True
+    if "preferred languages" in config and config["preferred languages for subs 1"] == '':
+        config["preferred languages for subs 1"] = config["preferred languages"]
+        is_updated = True
+    if is_updated:
+        del config["preferred languages"]
+    mw.addonManager.writeConfig(__name__, config)
+
+gui_hooks.main_window_did_init.append(update_old_config_settings)
