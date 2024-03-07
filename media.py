@@ -40,6 +40,12 @@ def getAudioId(video_id):
     else:
         raise Exception("NOT FOUND")
 
+def setAudioId(video_id, audio_id):
+    media_db = get_media_db()
+    d = media_db.get(video_id, {})
+    d['audio_id'] = audio_id
+    save_media_db()
+
 def get_path_in_media_db(video_id):
     media_db = get_media_db()
     try:

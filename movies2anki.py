@@ -8,6 +8,8 @@ from aqt.qt import *
 from aqt.utils import showInfo
 from anki.utils import call, no_bundled_libs, is_mac, is_win
 
+from .utils import format_filename
+
 try:
     from aqt.sound import _packagedCmd, si
     import aqt.sound as sound # Anki 2.1.17+
@@ -800,18 +802,6 @@ def guess_srt_file(video_file, mask_list, default_filename):
             return glob_result[0]
     else:
         return default_filename
-
-def format_filename(deck_name):
-    """
-    Returns the given string converted to a string that can be used for a clean
-    filename. Specifically, leading and trailing spaces are removed; other
-    spaces are converted to underscores; and anything that is not a unicode
-    alphanumeric, dash, underscore, or dot, is removed.
-    >>> get_valid_filename("john's portrait in 2004.jpg")
-    'johns_portrait_in_2004.jpg'
-    """
-    s = deck_name.strip().replace(' ', '_')
-    return re.sub(r'(?u)[^-\w.]', '', s)
 
 def getNameForCollectionDirectory(basedir, deck_name):
     prefix = format_filename(deck_name)

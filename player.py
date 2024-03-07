@@ -24,6 +24,7 @@ from aqt.qt import *
 from subprocess import check_output, CalledProcessError
 
 from . import media
+from .utils import format_filename
 
 # ------------- ADDITIONAL OPTIONS -------------
 NORMALIZE_AUDIO = False
@@ -1185,6 +1186,11 @@ def update_media():
     if is_multi_audio_streams:
         ai = AudioInfo(map_ids, map_data)
         ai.exec()
+
+        for video_path in map_ids:
+            audio_id = map_ids[video_path]
+            video_id = format_filename(os.path.splitext(os.path.basename(video_path))[0])
+            media.setAudioId(video_id, audio_id)
 
     mw.progressDialog.setWindowTitle("[movies2anki] Generating Media...")
     mw.progressDialog.setValue(0)

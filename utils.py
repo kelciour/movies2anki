@@ -1,4 +1,6 @@
 import subprocess
+import re
+import json
 
 from subprocess import check_output
 
@@ -40,3 +42,14 @@ def getSelectedAudioId(filepath, mpv_executable, ffprobe_executable):
             audio_id = 0
     return audio_id
 
+def format_filename(deck_name):
+    """
+    Returns the given string converted to a string that can be used for a clean
+    filename. Specifically, leading and trailing spaces are removed; other
+    spaces are converted to underscores; and anything that is not a unicode
+    alphanumeric, dash, underscore, or dot, is removed.
+    >>> get_valid_filename("john's portrait in 2004.jpg")
+    'johns_portrait_in_2004.jpg'
+    """
+    s = deck_name.strip().replace(' ', '_')
+    return re.sub(r'(?u)[^-\w.]', '', s)
