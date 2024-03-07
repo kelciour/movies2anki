@@ -282,7 +282,12 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
     if VLC_DIR:
         cmd = [VLC_DIR] + args + [os.path.normpath(fullpath)]
     else:
-        args += ["--aid={}".format(aid)]
+        if aid != "auto":
+            args += ["--aid={}".format(aid)]
+        else:
+            alang = config["preferred languages for audio"]
+            if alang != "":
+                args += ["--alang={}".format(alang)]
         if is_mac and os.path.exists(IINA_DIR):
             args = [o.replace("--", "--mpv-") for o in args]
             cmd = [IINA_DIR] + args + [fullpath]
