@@ -38,7 +38,7 @@ def getAudioId(video_id):
     if 'audio_id' in d:
         return d['audio_id']
     else:
-        raise Exception("NOT FOUND")
+        raise Exception("AUDIO ID NOT FOUND")
 
 def setAudioId(video_id, audio_id):
     media_db = get_media_db()
@@ -46,7 +46,7 @@ def setAudioId(video_id, audio_id):
     d['audio_id'] = audio_id
     save_media_db()
 
-def get_path_in_media_db(video_id):
+def get_path_in_media_db(video_id, parent=None):
     media_db = get_media_db()
     try:
         fullpath = media_db[video_id]["path"]
@@ -56,7 +56,9 @@ def get_path_in_media_db(video_id):
             media_directory = config["~input_directory"]
         else:
             media_directory = None
-        fullpath = getFile(mw, title="Select the source video file for '{}'".format(video_id), cb=None, dir=media_directory)
+        if parent is None:
+            parent = mw
+        fullpath = getFile(parent=parent, title="Select the source video file for '{}'".format(video_id), cb=None, dir=media_directory)
         if fullpath:
             if video_id not in media_db:
                 media_db[video_id] = {}

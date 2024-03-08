@@ -76,8 +76,6 @@ def updateNotes(browser, nids):
     config["condensed_audio_output_directory"] = output_directory
     mw.addonManager.writeConfig(__name__, config)
 
-    mw.checkpoint("Condensed Audio")
-
     data = []
     notes_to_process = defaultdict(list)
     errors = defaultdict(int)
@@ -93,24 +91,6 @@ def updateNotes(browser, nids):
 
         fields = mw.col.models.field_names(m)
 
-        audio_file = ""
-        if "Audio" in note:
-            audio_file = note["Audio"]
-        if '[sound:' in audio_file:
-            audio_file = audio_file.replace('[sound:', '')
-            audio_file = audio_file.replace(']', '')
-
-        ret = 1
-
-        audio_path = os.path.join(mw.col.media.dir(), audio_file)
-        if audio_file and is_collection_media and os.path.exists(audio_path):
-            cmd = ["ffprobe", "-loglevel", "warning", audio_path]
-            with no_bundled_libs():
-                p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
-                ret = p.wait()
-                if ret != 0:
-                    audio_file = None
-
         if "Audio" not in fields:
             errors["The Audio field doesn't exist"] += 1
             continue
@@ -119,32 +99,55 @@ def updateNotes(browser, nids):
             errors["The Audio field is empty"] += 1
             continue
 
+        audio_file = ""
+        if "Audio" in note:
+            audio_file = note["Audio"]
+        if '[sound:' in audio_file:
+            audio_file = audio_file.replace('[sound:', '')
+            audio_file = audio_file.replace(']', '')
+
+        m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", audio_file)
+        video_id = m.group(1)
         try:
             if "Path" in note and note["Path"] != '':
                 path = note["Path"]
             else:
-                m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
-                video_id = m.group(1)
-                path = media.get_path_in_media_db(video_id)
+                path = media.get_path_in_media_db(video_id, parent=browser)
         except:
             print(traceback.format_exc())
-            errors["Can't get the path to the source video file"] += 1
+            errors["Can't find the path to the source video file"] += 1
             continue
+
+        try:
+            audio_id = media.getAudioId(video_id)
+            audio_map_ids[video_id] = audio_id
+        except:
+            errors["Can't find the selected audio id. To fix it, run Tools > Generate Mobile Cards and then cancel the encoding if it's not needed"] += 1
+            continue
+
+        ret = 1
+        audio_path = os.path.join(mw.col.media.dir(), audio_file)
+        if audio_file and is_collection_media and os.path.exists(audio_path):
+            cmd = [ffprobe_executable, "-loglevel", "warning", audio_path]
+            with no_bundled_libs():
+                p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
+                ret = p.wait()
 
         if is_collection_media:
             notes_to_process[path].append((audio_path, ret))
             if not os.path.exists(audio_path) or ret != 0:
-                data.append((note, path))
+                data.append((note, path, audio_path, audio_file))
         else:
-            notes_to_process[path].append((os.path.abspath(os.path.join(tmpdir(), audio_file)), ret))
-            data.append((note, path))
+            audio_path = os.path.abspath(os.path.join(tmpdir(), audio_file))
+            notes_to_process[path].append((audio_path, ret))
+            data.append((note, path, audio_path, audio_file))
     mw.progress.finish()
 
     if len(notes_to_process) == 0:
         if errors:
             showText("Nothing to export.\n\n" + \
             "A few notes were skipped with the following errors: " + \
-                json.dumps(errors, sort_keys=True, indent=4))
+                json.dumps(errors, sort_keys=True, indent=4), parent=browser)
         else:
             tooltip("Nothing to export")
         return
@@ -193,10 +196,10 @@ def updateNotes(browser, nids):
         else:
             showText(message + '\n\n' + \
                 "A few notes were skipped with the following errors: " + \
-                json.dumps(worker.errors, sort_keys=True, indent=4))
+                json.dumps(worker.errors, sort_keys=True, indent=4), parent=browser)
         browser.onReset()
 
-    worker = AudioExporter(data, notes_to_process, config, errors)
+    worker = AudioExporter(data, notes_to_process, config, errors, audio_map_ids)
     worker.updateProgress.connect(setProgress)
     worker.updateProgressText.connect(setProgressText)
     worker.updateProgressTitle.connect(setProgressTitle)
@@ -213,7 +216,7 @@ class AudioExporter(QThread):
     updateNote = pyqtSignal(str, str, str)
     jobFinished = pyqtSignal(float)
 
-    def __init__(self, data, notes_to_process, config, errors):
+    def __init__(self, data, notes_to_process, config, errors, audio_map_ids):
         QThread.__init__(self)
 
         self.data = data
@@ -223,6 +226,7 @@ class AudioExporter(QThread):
         self.audio_fade = config["audio fade in/out"]
         self.canceled = False
         self.errors = errors
+        self.audio_map_ids = audio_map_ids
         self.fp = None
 
     def cancel(self):
@@ -234,20 +238,14 @@ class AudioExporter(QThread):
     def run(self):
         job_start = time.time()
 
-        audio_map_ids = {}
-        for idx, (note, path) in enumerate(self.data):
+        for idx, (note, path, audio_path, audio_file) in enumerate(self.data):
             if self.canceled:
                 break
-
-            audio_file = note["Audio"]
-            if '[sound:' in audio_file:
-                audio_file = audio_file.replace('[sound:', '')
-                audio_file = audio_file.replace(']', '')
 
             self.updateProgress.emit((idx * 1.0 / len(self.data)) * 100)
             self.updateProgressText.emit(audio_file)
 
-            time_start, time_end = re.match(r"^.*?_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", audio_file).groups()
+            video_id, time_start, time_end = re.match(r"^(.+?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", audio_file).groups()
 
             ss = secondsToTime(timeToSeconds(time_start), sep=":")
             se = secondsToTime(timeToSeconds(time_end), sep=":")
@@ -261,19 +259,7 @@ class AudioExporter(QThread):
             else:
                 af_params = ""
 
-            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
-            video_id = m.group(1)
-
-            if video_id in audio_map_ids:
-                audio_id = audio_map_ids[video_id]
-            else:
-                audio_id = media.getAudioId(video_id)
-                audio_map_ids[video_id] = audio_id
-
-            if self.is_collection_media:
-                audio_path = os.path.join(mw.col.media.dir(), audio_file)
-            else:
-                audio_path = os.path.join(tmpdir(), audio_file)
+            audio_id = self.audio_map_ids[video_id]
 
             cmd = [ffmpeg_executable]
             cmd += ["-y", "-ss", ss, "-i", path, "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
@@ -293,8 +279,13 @@ class AudioExporter(QThread):
                 else:
                     self.updateNote.emit(str(note.id), "Audio", audio_file)
 
-        self.updateProgressTitle.emit("Exporting Condensed Audio Files")
+        if not self.canceled:
+            self.updateProgressTitle.emit("Exporting Condensed Audio Files")
+
         for idx, path in enumerate(self.notes_to_process):
+            if self.canceled:
+                break
+
             self.updateProgress.emit((idx * 1.0 / len(self.notes_to_process)) * 100)
 
             list_to_concatenate = tmpfile(suffix='.txt')
@@ -305,7 +296,7 @@ class AudioExporter(QThread):
             with open(list_to_concatenate, "w", encoding="utf-8") as f:
                 for audio_path, ret in self.notes_to_process[path]:
                     if ret != 0:
-                        cmd = ["ffprobe", "-loglevel", "warning", audio_path]
+                        cmd = [ffprobe_executable, "-loglevel", "warning", audio_path]
                         with no_bundled_libs():
                             p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
                             if p.wait() != 0:
@@ -333,8 +324,8 @@ def onCondensedAudio(browser):
     if not nids:
         tooltip("No cards selected.")
         return
-    if not ffmpeg_executable:
-        return showWarning(r"""<p>Export Condensed Audio depends on <a href='https://www.ffmpeg.org'>FFmpeg</a>
+    if not ffmpeg_executable or not ffprobe_executable:
+        return showWarning(r"""<p>Export Condensed Audio depends on <a href='https://www.ffmpeg.org'>ffmpeg and ffprobe</a>
             to concatenate media files (<a href="https://trac.ffmpeg.org/wiki/Concatenate">https://trac.ffmpeg.org/wiki/Concatenate</a>),
             but couldn't find it in the PATH environment variable.</p>
             """)
