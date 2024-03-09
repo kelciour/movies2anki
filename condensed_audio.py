@@ -123,17 +123,10 @@ def updateNotes(browser, nids):
             errors["Can't find the selected audio id. To fix it, run Tools > Generate Mobile Cards and then cancel the encoding if it's not needed"] += 1
             continue
 
-        ret = 1
-        audio_path = os.path.join(mw.col.media.dir(), audio_file)
-        if audio_file and is_collection_media and os.path.exists(audio_path):
-            cmd = [ffmpeg_executable, "-i", audio_path, "-f", "null", "-"]
-            with no_bundled_libs():
-                p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
-                ret = p.wait()
-
         if is_collection_media:
+            audio_path = os.path.join(mw.col.media.dir(), audio_file)
             notes_to_process[path].append(audio_path)
-            if not os.path.exists(audio_path) or ret != 0:
+            if not os.path.exists(audio_path):
                 data.append((note, path, audio_path, audio_file))
         else:
             audio_path = os.path.abspath(os.path.join(tmpdir(), audio_file))
