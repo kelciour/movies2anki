@@ -1058,7 +1058,7 @@ class Model(object):
 
     def create_new_default_model(self):
         model = mw.col.models.new(self.model_name)
-        model['css'] = styles.css.strip()
+        model['css'] = styles.movies2anki_css.strip()
         mw.col.models.addField(model, mw.col.models.new_field("Id"))
         mw.col.models.addField(model, mw.col.models.new_field("Expression"))
         mw.col.models.addField(model, mw.col.models.new_field("Meaning"))
@@ -1066,8 +1066,8 @@ class Model(object):
         mw.col.models.addField(model, mw.col.models.new_field("Audio"))
         mw.col.models.addField(model, mw.col.models.new_field("Video"))
         t = mw.col.models.new_template("Card 1")
-        t['qfmt'] = styles.front_template.strip()
-        t['afmt'] = styles.back_template.strip()
+        t['qfmt'] = styles.movies2anki_front_template.strip()
+        t['afmt'] = styles.movies2anki_back_template.strip()
         mw.col.models.addTemplate(model, t)
         mw.col.models.add(model)
 
