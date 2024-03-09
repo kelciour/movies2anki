@@ -956,6 +956,10 @@ def on_play_filter(text, field, filter, context: TemplateRenderContext):
     if '[sound:' in text:
         return text
 
+    text = text.strip()
+    if text == '':
+        return text
+
     return '[sound:{}]'.format(text)
 
 hooks.field_filter.append(on_play_filter)
