@@ -33,9 +33,7 @@ if is_mac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/usr/local/bin:" + os.environ['PATH']
 
-mpv_executable = find_executable("mpv")
 ffmpeg_executable = find_executable("ffmpeg")
-ffprobe_executable = find_executable("ffprobe")
 
 def updateNotes(browser, nids):
     mw = browser.mw
@@ -128,18 +126,18 @@ def updateNotes(browser, nids):
         ret = 1
         audio_path = os.path.join(mw.col.media.dir(), audio_file)
         if audio_file and is_collection_media and os.path.exists(audio_path):
-            cmd = [ffprobe_executable, "-loglevel", "warning", audio_path]
+            cmd = [ffmpeg_executable, "-i", audio_path, "-f", "null", "-"]
             with no_bundled_libs():
                 p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
                 ret = p.wait()
 
         if is_collection_media:
-            notes_to_process[path].append((audio_path, ret))
+            notes_to_process[path].append(audio_path)
             if not os.path.exists(audio_path) or ret != 0:
                 data.append((note, path, audio_path, audio_file))
         else:
             audio_path = os.path.abspath(os.path.join(tmpdir(), audio_file))
-            notes_to_process[path].append((audio_path, ret))
+            notes_to_process[path].append(audio_path)
             data.append((note, path, audio_path, audio_file))
     mw.progress.finish()
 
@@ -294,15 +292,7 @@ class AudioExporter(QThread):
             self.updateProgressText.emit(output_file)
 
             with open(list_to_concatenate, "w", encoding="utf-8") as f:
-                for audio_path, ret in self.notes_to_process[path]:
-                    if ret != 0:
-                        cmd = [ffprobe_executable, "-loglevel", "warning", audio_path]
-                        with no_bundled_libs():
-                            p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
-                            if p.wait() != 0:
-                                self.errors["The audio file seems to be corrupted and was skipped"] += 1
-                                continue
-
+                for audio_path in self.notes_to_process[path]:
                     audio_path = audio_path.replace("'", r"'\''")
                     f.write("file '{}'\n".format(audio_path))
 
@@ -324,8 +314,8 @@ def onCondensedAudio(browser):
     if not nids:
         tooltip("No cards selected.")
         return
-    if not ffmpeg_executable or not ffprobe_executable:
-        return showWarning(r"""<p>Export Condensed Audio depends on <a href='https://www.ffmpeg.org'>ffmpeg and ffprobe</a>
+    if not ffmpeg_executable:
+        return showWarning(r"""<p>Export Condensed Audio depends on <a href='https://www.ffmpeg.org'>ffmpeg</a>
             to concatenate media files (<a href="https://trac.ffmpeg.org/wiki/Concatenate">https://trac.ffmpeg.org/wiki/Concatenate</a>),
             but couldn't find it in the PATH environment variable.</p>
             """)
