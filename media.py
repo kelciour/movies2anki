@@ -50,6 +50,8 @@ def get_path_in_media_db(video_id, parent=None):
     media_db = get_media_db()
     try:
         fullpath = media_db[video_id]["path"]
+        if not os.path.exists(fullpath):
+            raise Exception("PATH DOESN'T EXIST")
     except:
         config = mw.addonManager.getConfig(__name__)
         if "~input_directory" in config:

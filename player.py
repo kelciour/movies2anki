@@ -1040,16 +1040,22 @@ def update_media():
     map_data = {}
 
     # select the audio stream selected by mpv
+    skipped = []
     videos = []
     for idx, note in enumerate(data):
+        m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
+        video_id = m.group(1)
+        if video_id in skipped:
+            continue
         if "Path" in note and note["Path"] != "":
             video_path = note["Path"]
         else:
             try:
-                m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
-                video_id = m.group(1)
                 video_path = media.get_path_in_media_db(video_id)
+                if not video_path:
+                    skipped.append(video_id)
             except:
+                skipped.append(video_id)
                 continue
         if video_path in videos:
             continue
@@ -1064,6 +1070,11 @@ def update_media():
         except:
             print(traceback.format_exc())
             videos.append(video_path)
+
+    if skipped:
+        msg = "Skipped {} videos. The path was empty or doesn't exist.".format(len(skipped))
+        tooltip(msg)
+        return
 
     mw.progressDialog = QProgressDialog()
     mw.progressDialog.setWindowIcon(QIcon(":/icons/anki.png"))

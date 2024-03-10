@@ -79,6 +79,7 @@ def updateNotes(browser, nids):
     errors = defaultdict(int)
     audio_map_ids = {}
     mw.progress.start(parent=browser)
+    skipped = []
     for c, nid in enumerate(sorted(nids), 1):
         note = mw.col.get_note(nid)
         m = note.note_type()
@@ -106,21 +107,24 @@ def updateNotes(browser, nids):
 
         m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", audio_file)
         video_id = m.group(1)
+        if video_id in skipped:
+            errors["Can't find the path to the source video file"] += 1
+            continue
         try:
             if "Path" in note and note["Path"] != '':
                 path = note["Path"]
             else:
                 path = media.get_path_in_media_db(video_id, parent=browser)
         except:
-            print(traceback.format_exc())
             errors["Can't find the path to the source video file"] += 1
+            skipped.append(video_id)
             continue
 
         try:
             audio_id = media.getAudioId(video_id)
             audio_map_ids[video_id] = audio_id
         except:
-            errors["Can't find the selected audio id. To fix it, run Tools > Generate Mobile Cards and then cancel the encoding if it's not needed"] += 1
+            errors["Can't find audio_id in user_files/media.db."] += 1
             continue
 
         if is_collection_media:
