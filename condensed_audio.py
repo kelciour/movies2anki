@@ -256,7 +256,7 @@ class AudioExporter(QThread):
             cmd += ["-y", "-ss", ss, "-i", path, "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
             if af_params:
                 cmd += ["-af", af_params]
-            cmd += ["-map", "0:a:{}".format(audio_id), audio_path]
+            cmd += ["-map", "0:a:{}".format(audio_id-1), audio_path]
             with no_bundled_libs():
                 p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
                 p.wait()
