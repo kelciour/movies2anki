@@ -189,9 +189,12 @@ def updateNotes(browser, nids):
         if not worker.errors:
             QMessageBox.information(browser, "movies2anki", message)
         else:
-            showText(message + '\n\n' + \
+            msg = message + '\n\n' + \
                 "A few notes were skipped with the following errors: " + \
-                json.dumps(worker.errors, sort_keys=True, indent=4), parent=browser)
+                json.dumps(worker.errors, sort_keys=True, indent=4)
+            if worker.ffmpeg_errors:
+                msg += "\n\nFFmpeg encoding errors:\n" + '\n'.join(worker.ffmpeg_errors)
+            showText(msg, parent=browser)
         browser.onReset()
 
     worker = AudioExporter(data, notes_to_process, config, errors, audio_map_ids)
@@ -223,6 +226,7 @@ class AudioExporter(QThread):
         self.errors = errors
         self.audio_map_ids = audio_map_ids
         self.fp = None
+        self.ffmpeg_errors = []
 
     def cancel(self):
         self.canceled = True
@@ -233,6 +237,7 @@ class AudioExporter(QThread):
     def run(self):
         job_start = time.time()
 
+        audio_path_errors = []
         for idx, (note, path, audio_path, audio_file) in enumerate(self.data):
             if self.canceled:
                 break
@@ -263,7 +268,14 @@ class AudioExporter(QThread):
             cmd += ["-map", "0:a:{}".format(audio_id-1), audio_path]
             with no_bundled_libs():
                 p = subprocess.Popen(cmd, shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, startupinfo=si)
-                p.wait()
+                ret = p.wait()
+
+            if ret != 0:
+                audio_path_errors.append(audio_path)
+                self.errors["Failed to encode the audio file"] += 1
+                cmd_debug = " ".join([c if " " not in c else '"' + c + '"' for c in cmd])
+                cmd_debug = cmd_debug.replace(' -loglevel quiet ', ' ')
+                self.ffmpeg_errors.append(cmd_debug)
 
             if self.canceled:
                 break
@@ -290,6 +302,8 @@ class AudioExporter(QThread):
 
             with open(list_to_concatenate, "w", encoding="utf-8") as f:
                 for audio_path in self.notes_to_process[path]:
+                    if audio_path in audio_path_errors:
+                        continue
                     audio_path = audio_path.replace("'", r"'\''")
                     f.write("file '{}'\n".format(audio_path))
 
