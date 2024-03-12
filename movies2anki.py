@@ -1277,7 +1277,8 @@ class Model(object):
         # print "Syncing Russian subtitles with English phrases..."
         self.en_subs_phrases, self.ru_subs_phrases = sync_subtitles(self.en_subs_sentences, self.ru_subs_sentences, self.join_lines_that_end_with)
 
-        self.en_subs_phrases, self.ru_subs_phrases = join_questions(self.en_subs_phrases, self.ru_subs_phrases, self.is_gap_phrases)
+        if self.join_questions_with_answers:
+            self.en_subs_phrases, self.ru_subs_phrases = join_questions(self.en_subs_phrases, self.ru_subs_phrases, self.is_gap_phrases)
 
         # Разбиваем субтитры на фразы
         self.en_subs_phrases, self.ru_subs_phrases, self.subs_with_line_timings = convert_into_phrases(self.en_subs_phrases, self.ru_subs_phrases, self.time_delta, self.phrases_duration_limit, self.is_split_long_phrases, self.is_gap_phrases)
