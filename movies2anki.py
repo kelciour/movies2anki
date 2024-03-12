@@ -2377,7 +2377,7 @@ The longest phrase: %s min. %s sec.""" % (self.model.num_en_subs, self.model.num
 
         self.splitPhrasesSpinBox = QSpinBox()
         self.splitPhrasesSpinBox.setRange(1, 6000)
-        self.splitPhrasesSpinBox.setSingleStep(10)
+        self.splitPhrasesSpinBox.setSingleStep(1)
         self.splitPhrasesSpinBox.setValue(self.model.getPhrasesDurationLimit())
 
         hbox = QHBoxLayout()
