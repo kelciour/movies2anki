@@ -640,6 +640,9 @@ class MediaWorker(QThread):
             time_start_seconds = timeToSeconds(time_start)
             time_end_seconds = timeToSeconds(time_end)
 
+            if time_start_seconds == time_end_seconds:
+                continue
+
             ss = secondsToTime(timeToSeconds(time_start), sep=":")
             se = secondsToTime(timeToSeconds(time_end), sep=":")
             t = timeToSeconds(time_end) - timeToSeconds(time_start)
@@ -751,14 +754,15 @@ class MediaWorker(QThread):
                 if self.canceled:
                     break
 
-                with open(audio_temp_filepath, "rb") as file:
-                    fdata = file.read()
-                mw.col.media.write_data(audio_filename, fdata)
+                if os.path.exists(audio_temp_filepath):
+                    with open(audio_temp_filepath, "rb") as file:
+                        fdata = file.read()
+                    mw.col.media.write_data(audio_filename, fdata)
 
-                if "Audio Sound" in note:
-                    self.updateNote.emit(str(note.id), "Audio Sound", "[sound:%s]" % audio_filename)
-                else:
-                    self.updateNote.emit(str(note.id), "Audio", "[sound:%s]" % audio_filename)
+                    if "Audio Sound" in note:
+                        self.updateNote.emit(str(note.id), "Audio Sound", "[sound:%s]" % audio_filename)
+                    else:
+                        self.updateNote.emit(str(note.id), "Audio", "[sound:%s]" % audio_filename)
 
             video_filename = ""
             if "Video" in note:
@@ -833,14 +837,15 @@ class MediaWorker(QThread):
                 if self.canceled:
                     break
 
-                with open(video_temp_filepath, "rb") as file:
-                    fdata = file.read()
-                mw.col.media.write_data(video_filename, fdata)
+                if os.path.exists(video_temp_filepath):
+                    with open(video_temp_filepath, "rb") as file:
+                        fdata = file.read()
+                    mw.col.media.write_data(video_filename, fdata)
 
-                if "Video Sound" in note:
-                    self.updateNote.emit(str(note.id), "Video Sound", "[sound:%s]" % video_filename)
-                else:
-                    self.updateNote.emit(str(note.id), "Video", "[sound:%s]" % video_filename)
+                    if "Video Sound" in note:
+                        self.updateNote.emit(str(note.id), "Video Sound", "[sound:%s]" % video_filename)
+                    else:
+                        self.updateNote.emit(str(note.id), "Video", "[sound:%s]" % video_filename)
 
         job_end = time.time()
         time_diff = (job_end - job_start)
