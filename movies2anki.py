@@ -1299,6 +1299,7 @@ class Model(object):
                     output = check_output([ffprobe_executable, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", self.video_file], startupinfo=si, encoding='utf-8')
                 else:
                     output = check_output([mpv_executable, "--msg-level=all=no,term-msg=info", '--term-playing-msg=${=duration}', "--vo=null", "--ao=null", "--frames=1", "--quiet", "--no-cache", "--no-config", "--", self.video_file], startupinfo=si, encoding='utf-8')
+                    output = output.split('\n')[0]
 
             self.duration = float(output.strip())
 
