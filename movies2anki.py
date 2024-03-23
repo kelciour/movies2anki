@@ -618,6 +618,8 @@ def sync_subtitles(en_subs, ru_subs, join_lines_that_end_with):
         # assert i != 0
         assert en_end > ru_start
         ru_len = ru_end - ru_start
+        if ru_len == 0:
+            ru_len = 0.1
         if ru_end <= en_end:
             if ru_end <= en_start:
                 # print('FALSE:', ru_text)
