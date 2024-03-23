@@ -828,7 +828,7 @@ class MediaWorker(QThread):
                 logger.debug('export_video: {}'.format('Finished'))
                 retcode = self.fp.returncode
                 logger.debug('return code: {}'.format(retcode))
-                if retcode != 0:
+                if retcode != 0 and not self.canceled:
                     cmd_debug = ' '.join(['"' + c + '"' for c in cmd])
                     cmd_debug = cmd_debug.replace(' "-loglevel" "quiet" ', ' ')
                     cmd_debug = [cmd_debug]
