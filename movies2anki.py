@@ -230,7 +230,7 @@ def format_subtitles(subs, is_ignore_SDH, is_gap_phrases):
         sub_text = re.sub(r"  +", " ", sub_text)
         sub_text = re.sub(r'<\d+:\d+:\d+\.\d+>', '', sub_text)
 
-        sub_chunks = sub_text.split('\\N')
+        sub_chunks = re.split(r'(\\N|\n)', sub_text)
         sub_content = sub_chunks[0]
         for sub_line in sub_chunks[1:]:
             if sub_content and sub_content[-1] not in [u".", u"?", u"!", u"？", u"！", u"♪", '"'] and not sub_line.startswith('- '):
@@ -1023,7 +1023,7 @@ class Model(object):
 
         subs2 = []
         for line in subs:
-            subs2.append((line.start / 1000, line.end / 1000, line.text))
+            subs2.append((line.start / 1000, line.end / 1000, line.plaintext))
 
         subs2 = format_subtitles(subs2, is_ignore_SDH, is_gap_phrases)
 
