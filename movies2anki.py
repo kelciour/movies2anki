@@ -1735,9 +1735,13 @@ class MainDialog(QDialog):
             with no_bundled_libs():
                 cmd = [mpv_executable, "--vo=null", "--ao=null", "--frames=0", "--quiet", "--no-cache", "--", video_file]
                 with tempfile.TemporaryFile() as tmpfile:
-                    subprocess.check_call(cmd, startupinfo=info, encoding='utf-8', stdout=tmpfile, timeout=5)
+                    subprocess.check_call(cmd, startupinfo=info, stdout=tmpfile, timeout=5)
                     tmpfile.seek(0)
-                    mpv_output = tmpfile.read().decode('utf-8').strip()
+                    data = tmpfile.read()
+                    try:
+                        mpv_output = data.decode('utf-8').strip()
+                    except:
+                        mpv_output = data.decode('cp1251').strip()
             for line in mpv_output.splitlines():
                 is_selected = False
                 line = line.strip()
