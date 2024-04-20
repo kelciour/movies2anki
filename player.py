@@ -722,6 +722,8 @@ class MediaWorker(QThread):
                         cmd += ["-af", af_params]
                     cmd += ["-sn"]
                     cmd += ["-map_metadata", "-1"]
+                    if audio_filename.endswith('.mp3'):
+                        cmd += ["-c:a", "libmp3lame"]
                     cmd += ["-map", "0:a:{}".format(audio_id-1)]
                     cmd += [audio_temp_filepath]
                 else:
