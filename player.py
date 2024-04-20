@@ -19,7 +19,7 @@ from anki.template import TemplateRenderContext
 from anki.utils import no_bundled_libs, strip_html, tmpdir
 from aqt.reviewer import Reviewer
 from aqt import mw, browser, gui_hooks
-from aqt.utils import getFile, showWarning, showInfo, tooltip, is_win, is_mac
+from aqt.utils import getFile, showWarning, showInfo, showText, tooltip, is_win, is_mac
 from aqt.qt import *
 from subprocess import check_output, CalledProcessError
 
@@ -875,12 +875,19 @@ def saveNote(nid, fld, val):
     note[fld] = val
     note.flush()
 
-def finishProgressDialog(time_diff):
+def finishProgressDialog(time_diff, errors):
     mw.progressDialog.done(0)
     minutes = int(time_diff / 60)
     seconds = int(time_diff % 60)
     message = "Processing completed in %s minutes %s seconds." % (minutes, seconds)
-    QMessageBox.information(mw, "movies2anki", message)
+    if not errors:
+        QMessageBox.information(mw, "movies2anki", message)
+    else:
+        msg = "The following notes were skipped because the Id field doesn't match the regular expression: ^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$"
+        msg += "\n"
+        msg += "\n"
+        msg += ' or '.join(['nid:{}'.format(str(e)) for e in errors])
+        showText(message + '\n\n' + msg, parent=mw)
 
 class AudioInfo(QDialog):
 
@@ -1049,8 +1056,12 @@ def update_media():
     # select the audio stream selected by mpv
     skipped = []
     videos = []
+    errors = []
     for idx, note in enumerate(data):
         m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
+        if not m:
+            errors.append(note.id)
+            continue
         video_id = m.group(1)
         if video_id in skipped:
             continue
@@ -1081,7 +1092,6 @@ def update_media():
     if skipped:
         msg = "Skipped {} videos. The path was empty or doesn't exist.".format(len(skipped))
         tooltip(msg)
-        return
 
     mw.progressDialog = QProgressDialog()
     mw.progressDialog.setWindowIcon(QIcon(":/icons/anki.png"))
@@ -1224,7 +1234,7 @@ def update_media():
     mw.worker.updateProgress.connect(setProgress)
     mw.worker.updateProgressText.connect(setProgressText)
     mw.worker.updateNote.connect(saveNote)
-    mw.worker.jobFinished.connect(finishProgressDialog)
+    mw.worker.jobFinished.connect(lambda x: finishProgressDialog(x, errors))
     mw.worker.start()
 
 def stopWorker():
