@@ -95,7 +95,7 @@ base_css = """
 }
 
 img {
- display: block;
+ vertical-align: bottom;
  margin: auto;
  max-width: 100%;
  height: auto;
