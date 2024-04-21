@@ -1107,6 +1107,9 @@ def update_media():
         msg = "Skipped {} videos. The path was empty or doesn't exist.".format(len(skipped))
         tooltip(msg)
 
+    if not videos:
+        return
+
     mw.progressDialog = QProgressDialog()
     mw.progressDialog.setWindowIcon(QIcon(":/icons/anki.png"))
     flags = mw.progressDialog.windowFlags()
