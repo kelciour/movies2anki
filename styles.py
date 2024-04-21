@@ -1,5 +1,44 @@
 movies2anki_front_template = """
 <div>{{play:Video}}</div>
+
+<script>
+onUpdateHook.push(function () {
+  if (document.documentElement.classList.contains("android")) {
+    let video = document.querySelector("video");
+
+    if (!video) {
+      document.body.style.visibility = "visible";
+      return;
+    }
+
+    video.addEventListener("ended", () => {
+      video.controls = true;
+    }, { once: true });
+    video.addEventListener("click", () => {
+      video.controls = true;
+    }, { once: true });
+
+    video.addEventListener("timeupdate", () => {
+      if (video.currentTime > 0) {
+        document.body.style.visibility = "visible";
+      }
+    }, { once: true });
+
+    video.addEventListener("error", () => {
+      document.body.style.visibility = "visible";
+    }, { once: true });
+
+    video.controls = false;
+    video.currentTime = 0.001;
+
+    if (!document.querySelector("#answer")) {
+      video.play();
+    } else {
+      video.controls = true;
+    }
+  }
+});
+</script>
 """
 
 movies2anki_back_template = """
@@ -90,6 +129,9 @@ hr#answer {
 """
 
 movies2anki_css = base_css + """
+.android body {
+ visibility: hidden;
+}
 """
 
 #  ------------------------------------- #
@@ -124,39 +166,62 @@ subs2srs_css = base_css + """
 #  ------------------------------------- #
 
 subs2srs_video_front_template = """
-<video poster="{{Id}}.jpg" autoplay playsinline onclick="playVideo(); return false;" controlsList="nodownload" disablepictureinpicture disableRemotePlayback>
+<video poster="{{Id}}.jpg" playsinline onclick="playVideo();return false;" controlsList="nodownload" disablepictureinpicture disableRemotePlayback>
   <source src="{{Id}}.mp4" type="video/mp4">
   <source src="{{Id}}.webm" type="video/webm">
 </video>
 
+<div class="media"><a class="replay-button" href="#" onclick="playVideo();return false;"></a></div>
+
 <script>
 var video = document.querySelector('video');
-video.addEventListener('error', () => {
-  if (typeof pycmd !== 'undefined') {
-    pycmd("ankiplay{{Id}}.mp4");
-  }  
-});
+var error = false;
+var autoplay = true;
 
 function playVideo() {
-  video.currentTime = 0;
-  video.play();
+  if (error) {
+    if (typeof pycmd !== 'undefined') {
+      pycmd("ankiplay{{Id}}.mp4");
+    }
+  } else {
+    video.currentTime = 0;
+    video.play();
+  }
 }
 
 if (!globalThis.jsReplayButtonHandler) {
   document.addEventListener("keyup", (event) => {
-      if (event.code === "KeyR") {
-        playVideo();
-      }
+    if (event.code === "KeyR") {
+      playVideo();
+    }
   });
   globalThis.jsReplayButtonHandler = true;
 }
+
+onUpdateHook.push(function () {
+  if (document.querySelector("#answer")) {
+    autoplay = false;
+  }
+
+  let source = document.querySelector('video source:last-child');
+  source.addEventListener('error', () => {
+    error = true;
+    if (autoplay) {
+      playVideo();
+    }
+  });
+
+  if (autoplay) {
+    playVideo();
+  }
+})();
 </script>
 """
 
 subs2srs_video_back_template = """
 {{FrontSide}}
 
-<hr class="hidden">
+<hr id=answer>
 
 <div class="expression">{{Expression}}</div>
 
@@ -172,32 +237,22 @@ subs2srs_video_back_template = """
 """
 
 subs2srs_video_css = base_css + """
-body {
- height: 100vh;
- padding: 20px;
- margin: 0;
- box-sizing: border-box;
-}
-
 video {
- display: block;
- max-width: 100%;
- margin: auto;
-}
-
-.hidden {
- visibility: hidden;
- margin: 0;
+  display: block;
+  max-width: 100%;
+  margin: auto;
 }
 
 .mobile body, .mobile #content {
- margin: 0;
- padding: 0;
+  margin: 0;
+  padding: 0;
 }
 
-.mobile #content .back {
- margin: 10px;
- margin-top: 5px;
+.mobile .expression,
+.mobile .meaning,
+.mobile .notes {
+  margin-left: 10px;
+  margin-right: 10px;
 }
 """
 
