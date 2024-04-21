@@ -865,6 +865,10 @@ def cancelProgressDialog():
     is_cancel = True
     if hasattr(mw, 'worker'):
         mw.worker.cancel()
+    if hasattr(mw, 'progressDialog'):
+        mw.progressDialog.cancel()
+
+gui_hooks.profile_will_close.append(cancelProgressDialog)
 
 def setProgress(progress):
     logger.debug('progress: {:.2f}%'.format(progress))
@@ -1257,12 +1261,6 @@ def update_media():
     mw.worker.updateNote.connect(saveNote)
     mw.worker.jobFinished.connect(lambda x: finishProgressDialog(x, errors))
     mw.worker.start()
-
-def stopWorker():
-    if hasattr(mw, 'worker') and mw.worker != None:
-        mw.worker.cancel()
-
-addHook("unloadProfile", stopWorker)
 
 # Fix if "Replay buttons on card" add-on isn't installed
 def myLinkHandler(reviewer, url, _old):
