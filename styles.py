@@ -136,13 +136,13 @@ movies2anki_css = base_css + """
 
 #  ------------------------------------- #
 
-subs2srs_front_template = """
+subs2srs_image_front_template = """
 <div class="snapshot">{{Snapshot}}</div>
 
 <div class="media">{{play:Audio}}</div>
 """
 
-subs2srs_back_template = """
+subs2srs_image_back_template = """
 <div class="snapshot">{{Snapshot}}</div>
 
 <div class="media">{{play:Audio}}</div>
@@ -160,7 +160,7 @@ subs2srs_back_template = """
 {{/Notes}}
 """
 
-subs2srs_css = base_css + """
+subs2srs_image_css = base_css + """
 """
 
 #  ------------------------------------- #

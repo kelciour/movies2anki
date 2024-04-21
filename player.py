@@ -1003,7 +1003,8 @@ def update_media():
         return
 
     data = []
-    for model_name in ["movies2anki (add-on)", "movies2anki - subs2srs", "movies2anki - subs2srs (video)", "movies2anki - subs2srs (audio)"]:
+    legacy_model_name = ["movies2anki - subs2srs"]
+    for model_name in legacy_model_name + ["movies2anki (add-on)", "movies2anki - subs2srs (image)", "movies2anki - subs2srs (video)", "movies2anki - subs2srs (audio)"]:
         model = mw.col.models.by_name(model_name)
 
         if model == None:

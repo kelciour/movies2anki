@@ -838,7 +838,7 @@ class Model(object):
         self.audio_id = -1
         self.deck_name = ""
         self.model_name = "movies2anki (add-on)"
-        self.default_model_names = ["movies2anki (add-on)", "movies2anki - subs2srs", "movies2anki - subs2srs (video)", "movies2anki - subs2srs (audio)"]
+        self.default_model_names = ["movies2anki (add-on)", "movies2anki - subs2srs (image)", "movies2anki - subs2srs (video)", "movies2anki - subs2srs (audio)"]
 
         self.en_srt = ""
         self.ru_srt = ""
@@ -906,6 +906,8 @@ class Model(object):
 
         if "~model_name" in self.config:
             self.model_name = self.config["~model_name"]
+            if self.model_name == '"movies2anki - subs2srs':
+                self.model_name = "movies2anki - subs2srs (image)"
         # self.output_directory = config.get('main', 'output_directory')
         # self.video_width = config.getint('main', 'video_width')
         # self.video_height = config.getint('main', 'video_height')
@@ -1080,7 +1082,7 @@ class Model(object):
         elif "subs2srs (audio)" in self.model_name:
             model['css'] = styles.subs2srs_audio_css.strip()
         else:
-            model['css'] = styles.subs2srs_css.strip()
+            model['css'] = styles.subs2srs_image_css.strip()
 
         mw.col.models.addField(model, mw.col.models.new_field("Id"))
         mw.col.models.addField(model, mw.col.models.new_field("Expression"))
@@ -1102,8 +1104,8 @@ class Model(object):
             t['qfmt'] = styles.subs2srs_audio_front_template.strip()
             t['afmt'] = styles.subs2srs_audio_back_template.strip()
         else:
-            t['qfmt'] = styles.subs2srs_front_template.strip()
-            t['afmt'] = styles.subs2srs_back_template.strip()
+            t['qfmt'] = styles.subs2srs_image_front_template.strip()
+            t['afmt'] = styles.subs2srs_image_back_template.strip()
 
         mw.col.models.addTemplate(model, t)
         mw.col.models.add(model)
