@@ -1060,6 +1060,16 @@ def update_media():
     for idx, note in enumerate(data):
         m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
         if not m:
+            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Audio"])
+            if m:
+                note['Id'] = '{}_{}-{}'.format(*m.groups())
+                note.flush()
+        if not m and "Video" in note:
+            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Video"])
+            if m:
+                note['Id'] = '{}_{}-{}'.format(*m.groups())
+                note.flush()
+        if not m:
             errors.append(note.id)
             continue
         video_id = m.group(1)
