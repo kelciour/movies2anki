@@ -1085,29 +1085,29 @@ def update_media():
             try:
                 video_path = media.get_path_in_media_db(video_id)
                 if not video_path:
+                    print('[ERROR] PATH:', video_id)
                     skipped.append(video_id)
             except:
+                print('[ERROR] PATH:', video_id)
                 skipped.append(video_id)
                 continue
         if video_path in videos:
             continue
         if video_path in map_ids:
             continue
+        videos.append(video_path)
         try:
-            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
-            video_id = m.group(1)
             aid = media.getAudioId(video_id)
             map_ids[video_path] = aid
-            continue
         except:
             print(traceback.format_exc())
-            videos.append(video_path)
 
     if skipped:
-        msg = "Skipped {} videos. The path was empty or doesn't exist.".format(len(skipped))
+        msg = "Skipped {} videos. The path can't be found.".format(len(skipped))
         tooltip(msg)
 
     if not videos:
+        tooltip("No videos to process.")
         return
 
     mw.progressDialog = QProgressDialog()
@@ -1134,6 +1134,9 @@ def update_media():
         QApplication.instance().processEvents()
         if is_cancel:
             break
+
+        if video_path in map_ids:
+            continue
 
         video_filename = os.path.basename(video_path)
         mw.progressDialog.setLabelText(video_filename)
