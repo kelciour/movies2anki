@@ -46,13 +46,15 @@ def setAudioId(video_id, audio_id):
     d['audio_id'] = audio_id
     save_media_db()
 
-def get_path_in_media_db(video_id, parent=None):
+def get_path_in_media_db(video_id, parent=None, ask=True):
     media_db = get_media_db()
     try:
         fullpath = media_db[video_id]["path"]
         if not os.path.exists(fullpath):
             raise Exception("PATH DOESN'T EXIST")
     except:
+        if not ask:
+            raise Exception("PATH IS NOT FOUND: " + video_id)
         config = mw.addonManager.getConfig(__name__)
         if "~input_directory" in config:
             media_directory = config["~input_directory"]

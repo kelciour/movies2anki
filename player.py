@@ -260,15 +260,19 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         try:
             m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
             video_id = m.group(1)
-            fullpath = media.get_path_in_media_db(video_id)
+            fullpath = media.get_path_in_media_db(video_id, ask=False)
         except:
-            return
+            fullpath = path
 
     if path is not None and os.path.exists(path) and isEnd == True and not any([state, isPrev, isNext]):
         fullpath = path
         args = list(default_args)
 
     if not os.path.exists(fullpath):
+        if fullpath.endswith('.mp4') or fullpath.endswith('.webm'):
+            tooltip("video can't be found")
+        else:
+            tooltip("audio can't be found")
         return
 
     aid = "auto"
