@@ -1,50 +1,5 @@
 movies2anki_front_template = """
 <div>{{play:Video}}</div>
-
-<script>
-if (document.documentElement.classList.contains("android")) {
-  document.querySelectorAll("video").forEach(video => {
-    let a = document.createElement("a");
-    a.classList.add("replay-button");
-    a.setAttribute("href", "#");
-    a.onclick = function() {
-      video.currentTime = 0;
-      video.play();
-    }
-    video.insertAdjacentElement("afterend", a);
-
-    video.addEventListener("playing", (event) => {
-      document.body.style.opacity = 0;
-      video.style.visibility = "visible";
-      document.body.classList.add("darkify");
-      video.requestFullscreen();
-    });
-
-    video.addEventListener("ended", (event) => {
-      document.body.classList.remove("darkify");
-      video.style.visibility = "hidden";
-      document.exitFullscreen();
-    });
-
-    video.addEventListener("fullscreenchange", (event) => {
-      if (!document.fullscreenElement) {
-        document.body.classList.remove("darkify");
-        document.body.style.opacity = 1;
-      }
-    });
-  });
-
-  onUpdateHook.push(function () {
-    let video = document.querySelector("video");
-    if (video && !document.querySelector("#answer")) {
-      video.addEventListener("loadstart", (event) => {
-        video.play();
-      });
-      video.load();
-    }
-  })
-}
-</script>
 """
 
 movies2anki_back_template = """
@@ -135,27 +90,6 @@ hr#answer {
 """
 
 movies2anki_css = base_css + """
-.android #qa {
- margin-top: 14px;
-}
-
-.android video {
- display: block;
- margin: 10px 0;
-}
-
-.android video::-webkit-media-controls {
- display: none !important;
-}
-
-.android video {
- position: absolute;
- top: -1000px;
-}
-
-.darkify {
- background: black;
-}
 """
 
 #  ------------------------------------- #
@@ -190,130 +124,51 @@ subs2srs_css = base_css + """
 #  ------------------------------------- #
 
 subs2srs_video_front_template = """
-<video poster="{{text:Id}}.jpg" autoplay playsinline onclick="playVideo(); return false;" controlsList="nodownload" disablepictureinpicture disableRemotePlayback>
-  <source src="{{text:Id}}.webm" type="video/webm">
-  <source src="{{text:Id}}.mp4" type="video/mp4">
+<video poster="{{Id}}.jpg" autoplay playsinline onclick="playVideo(); return false;" controlsList="nodownload" disablepictureinpicture disableRemotePlayback>
+  <source src="{{Id}}.mp4" type="video/mp4">
+  <source src="{{Id}}.webm" type="video/webm">
 </video>
 
 <script>
-var isVideoError = false;
-var isAutoPlay = true;
-
 var video = document.querySelector('video');
 video.addEventListener('error', () => {
-  isVideoError = true;
-  if (isAutoPlay) {
-    isAutoPlay = false;
-    playVideo();
-  }
-}, true);
+  if (typeof pycmd !== 'undefined') {
+    pycmd("ankiplay{{Id}}.mp4");
+  }  
+});
 
 function playVideo() {
-  if (isVideoError && typeof pycmd !== 'undefined') {
-    return pycmd("ankiplay{{text:Id}}.mp4");
-  } else {
-    video.currentTime = 0;
-    video.play();
-  }
+  video.currentTime = 0;
+  video.play();
 }
 
-var isTextSelected = false;
-
-function tapAction(event) {
-  if (isTextSelected) return;
-  if (!window.getSelection().isCollapsed) return;
-  if (event.target.tagName == 'A') return;
-  playVideo();
-}
-
-if (!document.body.hasAttribute('js-tap-on-screen-handler')) {
-  document.body.setAttribute('js-tap-on-screen-handler', '');
-  document.addEventListener('click', tapAction);
-  document.addEventListener('mousedown', (event) => {
-    isTextSelected = !window.getSelection().isCollapsed;
+if (!globalThis.jsReplayButtonHandler) {
+  document.addEventListener("keyup", (event) => {
+      if (event.code === "KeyR") {
+        playVideo();
+      }
   });
-}
-
-function replaySound(event) {
-  if (event.key != 'r') return;
-  playVideo();
-}
-
-if (!document.body.hasAttribute('js-replay-button-handler')) {
-  document.body.setAttribute('js-replay-button-handler', '');
-  document.addEventListener('keyup', replaySound);
+  globalThis.jsReplayButtonHandler = true;
 }
 </script>
 """
 
 subs2srs_video_back_template = """
-<video poster="{{text:Id}}.jpg" playsinline onclick="playVideo(); return false;" controlsList="nodownload" disablepictureinpicture disableRemotePlayback>
-  <source src="{{text:Id}}.webm" type="video/webm">
-  <source src="{{text:Id}}.mp4" type="video/mp4">
-</video>
+{{FrontSide}}
 
-<div class="back">
+<hr class="hidden">
 
-  <hr class="hidden">
+<div class="expression">{{Expression}}</div>
 
-  <div class="expression">{{Expression}}</div>
+{{#Meaning}}
+<div class="meaning">{{Meaning}}</div>
+{{/Meaning}}
 
-  {{#Meaning}}
-  <div class="meaning">{{Meaning}}</div>
-  {{/Meaning}}
+{{#Notes}}
+<div class="notes">{{Notes}}</div>
+{{/Notes}}
 
-  {{#Notes}}
-  <div class="notes">{{Notes}}</div>
-  {{/Notes}}
-
-  <div class="media">{{play:Audio}}</div>
-
-</div>
-
-<script>
-var isVideoError = false;
-
-var video = document.querySelector('video');
-video.addEventListener('error', () => {
-  isVideoError = true;
-}, true);
-
-function playVideo() {
-  if (isVideoError && typeof pycmd !== 'undefined') {
-    return pycmd("ankiplay{{text:Id}}.mp4");
-  } else {
-    video.currentTime = 0;
-    video.play();
-  }
-}
-
-var isTextSelected = false;
-
-function tapAction(event) {
-  if (isTextSelected) return;
-  if (!window.getSelection().isCollapsed) return;
-  if (event.target.tagName == 'A') return;
-  playVideo();
-}
-
-if (!document.body.hasAttribute('js-tap-on-screen-handler')) {
-  document.body.setAttribute('js-tap-on-screen-handler', '');
-  document.addEventListener('click', tapAction);
-  document.addEventListener('mousedown', (event) => {
-    isTextSelected = !window.getSelection().isCollapsed;
-  });
-}
-
-function replaySound(event) {
-  if (event.key != 'r') return;
-  playVideo();
-}
-
-if (!document.body.hasAttribute('js-replay-button-handler')) {
-  document.body.setAttribute('js-replay-button-handler', '');
-  document.addEventListener('keyup', replaySound);
-}
-</script>
+<div class="media">{{play:Audio}}</div>
 """
 
 subs2srs_video_css = base_css + """
@@ -332,7 +187,7 @@ video {
 
 .hidden {
  visibility: hidden;
- margin-top: 0;
+ margin: 0;
 }
 
 .mobile body, .mobile #content {
