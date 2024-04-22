@@ -865,8 +865,10 @@ def cancelProgressDialog():
     is_cancel = True
     if hasattr(mw, 'worker'):
         mw.worker.cancel()
+        del mw.worker
     if hasattr(mw, 'progressDialog'):
         mw.progressDialog.cancel()
+        del mw.progressDialog
 
 gui_hooks.profile_will_close.append(cancelProgressDialog)
 
