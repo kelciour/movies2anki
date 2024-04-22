@@ -885,13 +885,13 @@ def saveNote(nid, fld, val):
     note[fld] = val
     note.flush()
 
-def finishProgressDialog(time_diff, errors):
+def finishProgressDialog(time_diff, errors, parent=mw):
     mw.progressDialog.done(0)
     minutes = int(time_diff / 60)
     seconds = int(time_diff % 60)
     message = "Processing completed in %s minutes %s seconds." % (minutes, seconds)
     if not errors:
-        QMessageBox.information(mw, "movies2anki", message)
+        QMessageBox.information(parent, "movies2anki", message)
     else:
         msg = "The following notes were skipped because the Id field doesn't match the regular expression: ^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$"
         msg += "\n"
@@ -988,7 +988,35 @@ def on_play_filter(text, field, filter, context: TemplateRenderContext):
 
 hooks.field_filter.append(on_play_filter)
 
-def update_media():
+ADDON_MODELS = [
+    "movies2anki (add-on)",
+    "movies2anki - subs2srs (image)",
+    "movies2anki - subs2srs (video)",
+    "movies2anki - subs2srs (audio)"
+    ]
+ADDON_MODELS += ["movies2anki - subs2srs"] # legacy model name
+
+def get_addon_nids():
+    nids = []
+
+    for model_name in ADDON_MODELS:
+        model = mw.col.models.by_name(model_name)
+
+        if model == None:
+            continue
+
+        mid = model['id']
+        query = "mid:%s" % (mid)
+        res = mw.col.find_notes(query)
+
+        if len(res) == 0:
+            continue
+
+        nids += res
+
+    return sorted(nids)
+
+def update_media(browser=False):
     global ffmpeg_executable
 
     if ffmpeg_executable is None:
@@ -1008,48 +1036,44 @@ def update_media():
         mw.progressDialog.activateWindow()
         return
 
+    nids = []
+    if browser:
+        nids = browser.selectedNotes()
+        if not nids:
+            return tooltip("No cards selected.")
+    else:
+        nids = get_addon_nids()
+
     data = []
-    legacy_model_name = ["movies2anki - subs2srs"]
-    for model_name in legacy_model_name + ["movies2anki (add-on)", "movies2anki - subs2srs (image)", "movies2anki - subs2srs (video)", "movies2anki - subs2srs (audio)"]:
-        model = mw.col.models.by_name(model_name)
-
-        if model == None:
+    for nid in nids:
+        note = mw.col.get_note(nid)
+        model = note.note_type()["name"]
+        if model not in ADDON_MODELS:
             continue
 
-        mid = model['id']
-        query = "mid:%s" % (mid)
-        res = mw.col.find_notes(query)
+        audio_filename = note["Audio"]
+        m = re.search(r'\[sound:(.+?)\]', audio_filename)
+        if m:
+            audio_filename = m.group(1)
+        audio_filename = audio_filename.replace('[sound:', '')
+        audio_filename = audio_filename.replace(']', '')
 
-        if len(res) == 0:
-            continue
-
-        nids = sorted(res)
-        for nid in nids:
-            note = mw.col.get_note(nid)
-
-            audio_filename = note["Audio"]
-            m = re.search(r'\[sound:(.+?)\]', audio_filename)
+        video_filename = ""
+        if "Video" in note:
+            video_filename = note["Video"]
+            m = re.search(r'\[sound:(.+?)\]', video_filename)
             if m:
-                audio_filename = m.group(1)
-            audio_filename = audio_filename.replace('[sound:', '')
-            audio_filename = audio_filename.replace(']', '')
+                video_filename = m.group(1)
+            video_filename = video_filename.replace('[sound:', '')
+            video_filename = video_filename.replace(']', '')
 
-            video_filename = ""
-            if "Video" in note:
-                video_filename = note["Video"]
-                m = re.search(r'\[sound:(.+?)\]', video_filename)
-                if m:
-                    video_filename = m.group(1)
-                video_filename = video_filename.replace('[sound:', '')
-                video_filename = video_filename.replace(']', '')
-
-            audio_path = os.path.join(mw.col.media.dir(), audio_filename)
-            video_path = os.path.join(mw.col.media.dir(), video_filename)
-            if ("Audio Sound" in note and note["Audio Sound"] == "") or ("Audio Sound" not in note and ('[sound:' not in note["Audio"] or not os.path.exists(audio_path))):
-                data.append(note)
-            elif model["name"] in ["movies2anki (add-on)", "movies2anki - subs2srs (video)"] and \
-                (("Video Sound" in note and note["Video Sound"] == "") or ("Video Sound" not in note and ('[sound:' not in note["Video"] or not os.path.exists(video_path)))):
-                data.append(note)
+        audio_path = os.path.join(mw.col.media.dir(), audio_filename)
+        video_path = os.path.join(mw.col.media.dir(), video_filename)
+        if ("Audio Sound" in note and note["Audio Sound"] == "") or ("Audio Sound" not in note and ('[sound:' not in note["Audio"] or not os.path.exists(audio_path))):
+            data.append(note)
+        elif model in ["movies2anki (add-on)", "movies2anki - subs2srs (video)"] and \
+            (("Video Sound" in note and note["Video Sound"] == "") or ("Video Sound" not in note and ('[sound:' not in note["Video"] or not os.path.exists(video_path)))):
+            data.append(note)
 
     if len(data) == 0:
         tooltip("Nothing to update")
@@ -1116,6 +1140,10 @@ def update_media():
     if not videos:
         tooltip("No videos to process.")
         return
+
+    parent = mw
+    if browser:
+        parent = browser
 
     mw.progressDialog = QProgressDialog()
     mw.progressDialog.setWindowIcon(QIcon(":/icons/anki.png"))
@@ -1261,7 +1289,7 @@ def update_media():
     mw.worker.updateProgress.connect(setProgress)
     mw.worker.updateProgressText.connect(setProgressText)
     mw.worker.updateNote.connect(saveNote)
-    mw.worker.jobFinished.connect(lambda x: finishProgressDialog(x, errors))
+    mw.worker.jobFinished.connect(lambda x: finishProgressDialog(x, errors, parent))
     mw.worker.start()
 
 # Fix if "Replay buttons on card" add-on isn't installed
@@ -1276,6 +1304,14 @@ Reviewer._linkHandler = wrap(Reviewer._linkHandler, myLinkHandler, "around")
 update_media_action = QAction("Generate Mobile Cards...", mw)
 update_media_action.triggered.connect(update_media)
 mw.form.menuTools.addAction(update_media_action)
+
+def setupMenu(browser):
+    a = QAction("Generate Mobile Cards...", browser)
+    a.triggered.connect(lambda: update_media(browser))
+    browser.form.menuEdit.addSeparator()
+    browser.form.menuEdit.addAction(a)
+
+addHook("browser.setupMenus", setupMenu)
 
 # def on_card_answer(reviewer, card, ease):
 #     note = mw.col.get_note(card.nid)
