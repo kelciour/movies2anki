@@ -173,6 +173,8 @@ subs2srs_video_front_template = """
 
 <div class="media"><a class="replay-button" href="#" onclick="playVideo();return false;"></a></div>
 
+<div class="snapshot" hidden>{{Snapshot}}</div>
+
 <script>
 var video = document.querySelector('video');
 var error = false;
