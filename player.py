@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import html
 import subprocess, sys, json, time, re, os, atexit
 import logging
 import tempfile
@@ -762,14 +763,13 @@ class MediaWorker(QThread):
                     break
 
                 if os.path.exists(audio_temp_filepath):
-                    with open(audio_temp_filepath, "rb") as file:
-                        fdata = file.read()
-                    mw.col.media.write_data(audio_filename, fdata)
+                    fname = mw.col.media.add_file(audio_temp_filepath)
+                    fname = f"[sound:{html.escape(fname, quote=False)}]"
 
                     if "Audio Sound" in note:
-                        self.updateNote.emit(str(note.id), "Audio Sound", "[sound:%s]" % audio_filename)
+                        self.updateNote.emit(str(note.id), "Audio Sound", fname)
                     else:
-                        self.updateNote.emit(str(note.id), "Audio", "[sound:%s]" % audio_filename)
+                        self.updateNote.emit(str(note.id), "Audio", fname)
 
             video_filename = ""
             if "Video" in note:
@@ -843,14 +843,13 @@ class MediaWorker(QThread):
                     break
 
                 if os.path.exists(video_temp_filepath):
-                    with open(video_temp_filepath, "rb") as file:
-                        fdata = file.read()
-                    mw.col.media.write_data(video_filename, fdata)
+                    fname = mw.col.media.add_file(video_temp_filepath)
+                    fname = f"[sound:{html.escape(fname, quote=False)}]"
 
                     if "Video Sound" in note:
-                        self.updateNote.emit(str(note.id), "Video Sound", "[sound:%s]" % video_filename)
+                        self.updateNote.emit(str(note.id), "Video Sound", fname)
                     else:
-                        self.updateNote.emit(str(note.id), "Video", "[sound:%s]" % video_filename)
+                        self.updateNote.emit(str(note.id), "Video", fname)
 
         job_end = time.time()
         time_diff = (job_end - job_start)

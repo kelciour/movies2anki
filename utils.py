@@ -1,6 +1,7 @@
 import subprocess
 import re
 import json
+import unicodedata
 
 from subprocess import check_output
 
@@ -10,6 +11,8 @@ try:
     from aqt.sound import si
 except ImportError as e:
     from anki.sound import si
+
+MAX_MEDIA_FILENAME_LENGTH = 120 - 30
 
 def timeToSeconds(t):
     hours, minutes, seconds, milliseconds = t.split('.')
@@ -52,4 +55,7 @@ def format_filename(deck_name):
     'johns_portrait_in_2004.jpg'
     """
     s = deck_name.strip().replace(' ', '_')
-    return re.sub(r'(?u)[^-\w.]', '', s)
+    s = unicodedata.normalize('NFC', s)
+    s = re.sub(r'(?u)[^-\w.]', '', s)
+    s = s[:MAX_MEDIA_FILENAME_LENGTH]
+    return s
