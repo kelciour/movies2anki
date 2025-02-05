@@ -725,6 +725,7 @@ class MediaWorker(QThread):
                     if af_params:
                         cmd += ["-af", af_params]
                     cmd += ["-sn"]
+                    cmd += ["-vn"]
                     cmd += ["-map_metadata", "-1"]
                     if audio_filename.endswith('.mp3'):
                         cmd += config["audio encoding settings (mp3)"].split()
