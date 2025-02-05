@@ -21,7 +21,7 @@ def save_media_db():
     if media_db is None:
         return
     with open(media_db_path, 'w', encoding='utf-8') as f_db:
-        json.dump(media_db, f_db)
+        json.dump(media_db, f_db, indent=4, ensure_ascii=False)
 
 def addVideoFile(video_id, video_path, audio_id):
     media_db = get_media_db()
