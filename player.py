@@ -798,10 +798,8 @@ class MediaWorker(QThread):
                     cmd += ["-map_metadata", "-1"]
                     if video_filename.endswith('.webm'):
                         cmd += config["video encoding settings (webm)"].split()
-                    else:
-                        cmd += ["-c:v", "libx264"]
-                        cmd += ["-profile:v", "main", "-level:v", "3.1"]
-                        cmd += ['-movflags', '+faststart']
+                    elif video_filename.endswith('.mp4'):
+                        cmd += config["video encoding settings (mp4)"].split()
                     cmd += [video_temp_filepath]
                 else:
                     cmd = [mpv_executable, note_video_path]
