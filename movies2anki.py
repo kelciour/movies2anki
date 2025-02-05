@@ -376,12 +376,10 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
     config = mw.addonManager.getConfig(__name__)
     join_lines_separator = config["join lines with"]
 
-    # if phrases_duration_limit == 0 or not is_split_long_phrases:
-    #     sentence_duration_limit = 15
-    # else:
-    #     sentence_duration_limit = phrases_duration_limit
-
-    sentence_duration_limit = 25
+    if is_split_long_phrases:
+        sentence_duration_limit = phrases_duration_limit
+    else:
+        sentence_duration_limit = 20
 
     subs = []
     for sub in en_subs:
@@ -417,12 +415,12 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
             if prev_sub_content.endswith('♪') or sub_content.startswith('♪'):
                 flag = False
             if sub_content.startswith('...'):
-                flag = True
+                flag = False
             if sub_content.startswith('—'):
                 flag = False
             if prev_sub_content and prev_sub_content[-1] in [',', ':']:
                 flag = True
-            if prev_sub_content.endswith('...') and (sub_content[0].islower() and sub_content[0].isalpha()):
+            if prev_sub_content.endswith('...') and ((sub_content[0].islower() and sub_content[0].isalpha()) or sub_content.startswith('...')):
                 flag = True
 
             # print('FLAG:', flag)
@@ -440,13 +438,16 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
 
     return subs
 
-def join_questions(en_subs, ru_subs, is_gap_phrases):
+def join_questions(en_subs, ru_subs, is_gap_phrases, is_split_long_phrases, phrases_duration_limit):
     config = mw.addonManager.getConfig(__name__)
     join_sentences_separator = config["join sentences with"]
 
     subs = []
 
-    sentence_duration_limit = 15
+    if is_split_long_phrases:
+        sentence_duration_limit = phrases_duration_limit
+    else:
+        sentence_duration_limit = 20
 
     subs2 = []
     for i, sub in enumerate(en_subs):
@@ -1282,7 +1283,7 @@ class Model(object):
         self.en_subs_phrases, self.ru_subs_phrases = sync_subtitles(self.en_subs_sentences, self.ru_subs_sentences, self.join_lines_that_end_with)
 
         if self.join_questions_with_answers:
-            self.en_subs_phrases, self.ru_subs_phrases = join_questions(self.en_subs_phrases, self.ru_subs_phrases, self.is_gap_phrases)
+            self.en_subs_phrases, self.ru_subs_phrases = join_questions(self.en_subs_phrases, self.ru_subs_phrases, self.is_gap_phrases, self.is_split_long_phrases, self.phrases_duration_limit)
 
         # Разбиваем субтитры на фразы
         self.en_subs_phrases, self.ru_subs_phrases, self.subs_with_line_timings = convert_into_phrases(self.en_subs_phrases, self.ru_subs_phrases, self.time_delta, self.phrases_duration_limit, self.is_split_long_phrases, self.is_gap_phrases)
