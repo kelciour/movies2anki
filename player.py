@@ -598,7 +598,10 @@ def joinCard(isPrev=False, isNext=False):
             cnt) % cnt)
 
 def join_and_add_double_quotes(cmd):
-    return '[' + ' '.join(['"{}"'.format(s) if ' ' in s else s for s in cmd]) + ']'
+    cmd = '[' + ' '.join(['"{}"'.format(s) if ' ' in s else s for s in cmd]) + ']'
+    cmd = cmd.replace(' -loglevel quiet ', ' ')
+    cmd = cmd.replace("\\'", "'")
+    return cmd
 
 class MediaWorker(QThread):
     updateProgress = pyqtSignal(int)
@@ -834,9 +837,7 @@ class MediaWorker(QThread):
                 retcode = self.fp.returncode
                 logger.debug('return code: {}'.format(retcode))
                 if retcode != 0 and not self.canceled:
-                    cmd_debug = ' '.join(['"' + c + '"' for c in cmd])
-                    cmd_debug = cmd_debug.replace(' "-loglevel" "quiet" ', ' ')
-                    cmd_debug = [cmd_debug]
+                    cmd_debug = join_and_add_double_quotes(cmd)
                     raise CalledProcessError(retcode, cmd_debug)
 
                 if self.canceled:
