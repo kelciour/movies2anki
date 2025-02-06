@@ -1031,7 +1031,7 @@ def update_media(browser=False):
     #     On Windows download FFmpeg and either update PATH environment variable or put ffmpeg.exe in Anki installation folder (C:\Program Files\Anki).""", parent=mw)
 
     if hasattr(mw, 'worker') and mw.worker != None and mw.worker.isRunning():
-        mw.progressDialog.setWindowState(mw.progressDialog.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
+        mw.progressDialog.setWindowState(mw.progressDialog.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
         mw.progressDialog.activateWindow()
         return
 
