@@ -58,4 +58,5 @@ def format_filename(deck_name):
     s = unicodedata.normalize('NFC', s)
     s = re.sub(r'(?u)[^-\w.]', '', s)
     s = s[:MAX_MEDIA_FILENAME_LENGTH]
+    s = s.rstrip('.')
     return s
