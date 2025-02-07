@@ -616,6 +616,7 @@ class MediaWorker(QThread):
         self.canceled = False
         self.fp = None
         self.map_ids = map_ids
+        self.errors = []
 
         if os.environ.get("ADDON_DEBUG"):
             logger.setLevel(logging.DEBUG)
@@ -648,7 +649,8 @@ class MediaWorker(QThread):
             time_start_seconds = timeToSeconds(time_start)
             time_end_seconds = timeToSeconds(time_end)
 
-            if time_start_seconds == time_end_seconds:
+            if time_start_seconds >= time_end_seconds:
+                self.errors += [note.id]
                 continue
 
             ss = secondsToTime(timeToSeconds(time_start), sep=":")
@@ -890,18 +892,30 @@ def saveNote(nid, fld, val):
     note[fld] = val
     note.flush()
 
-def finishProgressDialog(time_diff, errors, parent=mw):
+def finishProgressDialog(time_diff, errors, worker_errors, parent=mw):
     mw.progressDialog.done(0)
     minutes = int(time_diff / 60)
     seconds = int(time_diff % 60)
     message = "Processing completed in %s minutes %s seconds." % (minutes, seconds)
-    if not errors:
+    msg = []
+    if errors:
+        msg.append(
+            "The following notes were skipped because the Id field doesn't match the regular expression: ^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$" + \
+            "\n" + \
+            "\n" + \
+            ' or '.join(['nid:{}'.format(str(e)) for e in errors])
+        )
+    if worker_errors:
+        msg.append(
+            "The following notes with the same or negative timestamps were skipped." + \
+            "\n" + \
+            "\n" + \
+            ' or '.join(['nid:{}'.format(str(e)) for e in worker_errors])
+        )
+    msg = '\n\n'.join(msg)
+    if not msg:
         QMessageBox.information(parent, "movies2anki", message)
     else:
-        msg = "The following notes were skipped because the Id field doesn't match the regular expression: ^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$"
-        msg += "\n"
-        msg += "\n"
-        msg += ' or '.join(['nid:{}'.format(str(e)) for e in errors])
         showText(message + '\n\n' + msg, parent=mw)
 
 class AudioInfo(QDialog):
@@ -1294,7 +1308,7 @@ def update_media(browser=False):
     mw.worker.updateProgress.connect(setProgress)
     mw.worker.updateProgressText.connect(setProgressText)
     mw.worker.updateNote.connect(saveNote)
-    mw.worker.jobFinished.connect(lambda x: finishProgressDialog(x, errors, parent))
+    mw.worker.jobFinished.connect(lambda x: finishProgressDialog(x, errors, mw.worker.errors, parent))
     mw.worker.start()
 
 # Fix if "Replay buttons on card" add-on isn't installed
