@@ -381,6 +381,9 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
     else:
         sentence_duration_limit = 20
 
+    if config["maximum subtitle duration"] != 0:
+        sentence_duration_limit = config["maximum subtitle duration"]
+
     subs = []
     for sub in en_subs:
         sub_start = sub[0]
@@ -448,6 +451,9 @@ def join_questions(en_subs, ru_subs, is_gap_phrases, is_split_long_phrases, phra
         sentence_duration_limit = phrases_duration_limit
     else:
         sentence_duration_limit = 20
+
+    if config["maximum subtitle duration"] != 0:
+        sentence_duration_limit = config["maximum subtitle duration"]
 
     subs2 = []
     for i, sub in enumerate(en_subs):

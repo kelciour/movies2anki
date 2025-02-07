@@ -12,5 +12,6 @@
 	"video encoding settings (webm)": "-c:v libvpx-vp9 -crf 30 -b:v 0 -c:a libopus -b:a 64k",
 	"audio encoding settings (mp3)": "-ac 1 -c:a libmp3lame -b:a 64k",
 	"join lines with": "<br>",
-	"join sentences with": "<br>"
+	"join sentences with": "<br>",
+	"maximum subtitle duration": 0
 }
