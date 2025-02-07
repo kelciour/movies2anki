@@ -725,7 +725,10 @@ class MediaWorker(QThread):
                 self.fp = None
                 audio_temp_filepath = os.path.join(tmpdir(), audio_filename)
                 if ffmpeg_executable:
-                    cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note_video_path, "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
+                    cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note_video_path]
+                    if os.environ.get("ADDON_DEBUG") is None:
+                        cmd += ["-loglevel", "quiet"]
+                    cmd += ["-t", "{:.3f}".format(t)]
                     if af_params:
                         cmd += ["-af", af_params]
                     cmd += ["-sn"]
@@ -793,7 +796,10 @@ class MediaWorker(QThread):
                 self.fp = None
                 video_temp_filepath = os.path.join(tmpdir(), video_filename)
                 if ffmpeg_executable:
-                    cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note_video_path, "-loglevel", "quiet", "-t", "{:.3f}".format(t)]
+                    cmd = [ffmpeg_executable, "-y", "-ss", ss, "-i", note_video_path]
+                    if os.environ.get("ADDON_DEBUG") is None:
+                        cmd += ["-loglevel", "quiet"]
+                    cmd += ["-t", "{:.3f}".format(t)]
                     if af_params:
                         cmd += ["-af", af_params]
                     cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id-1), "-ac", "2", "-vf", "scale='min(%s,iw)':'min(%s,ih)',setsar=1" % (video_width, video_height)]
