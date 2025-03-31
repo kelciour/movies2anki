@@ -1195,7 +1195,7 @@ def update_media(browser=False):
         video_filename = os.path.basename(video_path)
         mw.progressDialog.setLabelText(video_filename)
 
-        mw.progressDialog.setValue((idx * 1.0 / len(videos)) * 100)
+        mw.progressDialog.setValue(int((idx * 1.0 / len(videos)) * 100))
 
         audio_id = -1
         with no_bundled_libs():
