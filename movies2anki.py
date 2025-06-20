@@ -17,7 +17,10 @@ except ImportError:
     from anki.sound import _packagedCmd, si
     import anki.sound as sound
 
-from distutils.spawn import find_executable
+try:
+    from distutils.spawn import find_executable
+except:
+    from shutil import which as find_executable
 
 from . import media
 

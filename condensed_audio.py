@@ -6,7 +6,10 @@ import subprocess
 import traceback
 
 from collections import defaultdict
-from distutils.spawn import find_executable
+try:
+    from distutils.spawn import find_executable
+except:
+    from shutil import which as find_executable
 from subprocess import check_output
 
 from aqt import mw

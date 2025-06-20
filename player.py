@@ -45,7 +45,10 @@ if is_win:
 
 p = None
 
-from distutils.spawn import find_executable
+try:
+    from distutils.spawn import find_executable
+except:
+    from shutil import which as find_executable
 
 if is_mac and '/usr/local/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
