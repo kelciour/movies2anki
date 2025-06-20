@@ -58,7 +58,10 @@ if is_mac and '/opt/homebrew/bin' not in os.environ['PATH'].split(':'):
     # https://docs.brew.sh/FAQ#my-mac-apps-dont-find-usrlocalbin-utilities
     os.environ['PATH'] = "/opt/homebrew/bin:" + os.environ['PATH']
 
-mpv_executable, env = find_executable("mpv"), os.environ
+if is_win:
+    mpv_executable, env = find_executable("mpv.exe"), os.environ
+else:
+    mpv_executable, env = find_executable("mpv"), os.environ
 
 if mpv_executable is None and is_mac:
     mpv_executable = "/Applications/mpv.app/Contents/MacOS/mpv"
