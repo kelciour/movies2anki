@@ -245,7 +245,8 @@ class AudioExporter(QThread):
             if self.canceled:
                 break
 
-            self.updateProgress.emit((idx * 1.0 / len(self.data)) * 100)
+            upd_status = int((idx * 1.0 / len(self.data)) * 100)
+            self.updateProgress.emit(upd_status)
             self.updateProgressText.emit(audio_file)
 
             video_id, time_start, time_end = re.match(r"^(.+?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", audio_file).groups()
@@ -296,7 +297,8 @@ class AudioExporter(QThread):
             if self.canceled:
                 break
 
-            self.updateProgress.emit((idx * 1.0 / len(self.notes_to_process)) * 100)
+            upd_status = int((idx * 1.0 / len(self.notes_to_process)) * 100)
+            self.updateProgress.emit(upd_status)
 
             list_to_concatenate = tmpfile(suffix='.txt')
             output_file = os.path.splitext(os.path.basename(path))[0] + '.mp3'

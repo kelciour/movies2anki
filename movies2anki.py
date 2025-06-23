@@ -1433,7 +1433,8 @@ class VideoWorker(QThread):
 
                 if last_update is None or time.time() - last_update > 0.5:
                     last_update = time.time()
-                    self.updateProgress.emit((num_files_completed * 1.0 / num_files) * 100)
+                    upd_status = int((num_files_completed * 1.0 / num_files) * 100)
+                    self.updateProgress.emit(upd_status)
 
                 QApplication.instance().processEvents()
 

@@ -646,7 +646,8 @@ class MediaWorker(QThread):
             if self.canceled:
                 break
 
-            self.updateProgress.emit((idx * 1.0 / len(self.data)) * 100)
+            upd_status = int((idx * 1.0 / len(self.data)) * 100)
+            self.updateProgress.emit(upd_status)
 
             fld = note["Audio"]
 
