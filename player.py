@@ -202,7 +202,7 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         #     time_end = id_time_end
 
         time_interval = "%s-%s" % (secondsToTime(time_start), secondsToTime(time_end))
-        mw.reviewer.card.note()["Id"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Id"])
+        mw.reviewer.card.note()["Id"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+", "_%s" % time_interval, fields["Id"])
         mw.reviewer.card.note()["Audio"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Audio"])
         if "Video" in mw.reviewer.card.note():
             mw.reviewer.card.note()["Video"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Video"])
