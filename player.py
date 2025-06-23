@@ -907,7 +907,7 @@ def finishProgressDialog(time_diff, errors, worker_errors, parent=mw):
     msg = []
     if errors:
         msg.append(
-            "The following notes were skipped because the Id field doesn't match the regular expression: ^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$" + \
+            r"The following notes were skipped because the Id field doesn't match the regular expression: ^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$" + \
             "\n" + \
             "\n" + \
             ' or '.join(['nid:{}'.format(str(e)) for e in errors])
