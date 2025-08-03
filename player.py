@@ -5,6 +5,7 @@ import subprocess, sys, json, time, re, os, atexit
 import logging
 import tempfile
 import traceback
+import threading
 
 try:
     from aqt.sound import play, _packagedCmd, si
@@ -17,12 +18,23 @@ from anki import hooks
 from anki.lang import _, ngettext
 from anki.hooks import addHook, wrap
 from anki.template import TemplateRenderContext
-from anki.utils import no_bundled_libs, strip_html, tmpdir
+from anki.utils import no_bundled_libs, strip_html, tmpdir, is_win, is_lin, is_mac
 from aqt.reviewer import Reviewer
 from aqt import mw, browser, gui_hooks
-from aqt.utils import getFile, showWarning, showInfo, showText, tooltip, is_win, is_mac
+from aqt.utils import getFile, showWarning, showInfo, showText, tooltip
 from aqt.qt import *
 from subprocess import check_output, CalledProcessError
+
+
+import importlib.util
+
+module_path = os.path.join(os.path.dirname(__file__), "vendor", "mpv.py")
+spec = importlib.util.spec_from_file_location("mpv2", module_path)
+mpv2 = importlib.util.module_from_spec(spec)
+sys.modules["mpv2"] = mpv2
+spec.loader.exec_module(mpv2)
+
+from mpv2 import MPV, MPVBase
 
 from . import media
 from .utils import format_filename
@@ -108,8 +120,9 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
     global p, _player
 
     fields = {}
-    for item in mw.reviewer.card.note().items():
-        fields[item[0]] = item[1]
+    if card_context == "reviewer":
+        for item in mw.reviewer.card.note().items():
+            fields[item[0]] = item[1]
 
     # if path is not None and os.path.exists(path):
     #     _player(path)
@@ -124,6 +137,8 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
     path = strip_html(path)
     path = path.replace('[sound:', '')
     path = path.replace(']', '')
+
+    filepath = os.path.join(mw.col.media.dir(), path)
 
     # elif path.endswith(".mp3"): # workaround to fix replay button (R) without refreshing webview.
     #     path = fields["Audio"]
@@ -201,12 +216,13 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         #     id_time_end = timeToSeconds(id_time_end)
         #     time_end = id_time_end
 
-        time_interval = "%s-%s" % (secondsToTime(time_start), secondsToTime(time_end))
-        mw.reviewer.card.note()["Id"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+", "_%s" % time_interval, fields["Id"])
-        mw.reviewer.card.note()["Audio"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Audio"])
-        if "Video" in mw.reviewer.card.note():
-            mw.reviewer.card.note()["Video"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Video"])
-        mw.reviewer.card.note().flush()
+        if card_context == "reviewer":
+            time_interval = "%s-%s" % (secondsToTime(time_start), secondsToTime(time_end))
+            mw.reviewer.card.note()["Id"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+", "_%s" % time_interval, fields["Id"])
+            mw.reviewer.card.note()["Audio"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Audio"])
+            if "Video" in mw.reviewer.card.note():
+                mw.reviewer.card.note()["Video"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Video"])
+            mw.reviewer.card.note().flush()
 
     if VLC_DIR:
         default_args = ["-I", "dummy", "--play-and-exit", "--no-video-title", "--video-on-top", "--sub-track=8"]
@@ -214,8 +230,9 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
             default_args += ["--dummy-quiet"]
         default_args += ["--no-sub-autodetect-file"]
     else:
-        default_args = ["--pause=no", "--script=%s" % os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.lua")]
+        default_args = ["--pause=no", "--script=%s" % os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "settings.lua")]
         default_args += ["--sub-visibility=no", "--no-resume-playback", "--save-position-on-quit=no"]
+        default_args += ["--ontop"]
 
     if path.endswith(".mp3"):
         if VLC_DIR:
@@ -265,14 +282,16 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         fullpath = fields["Path"]
     else:
         try:
-            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
+            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", path)
             video_id = m.group(1)
             fullpath = media.get_path_in_media_db(video_id, ask=False)
         except:
             fullpath = path
 
-    if path is not None and os.path.exists(path) and isEnd == True and not any([state, isPrev, isNext]):
-        fullpath = path
+    if os.path.exists(filepath):
+        fullpath = filepath
+        time_start = -1
+        time_end = -1
         args = list(default_args)
 
     if not os.path.exists(fullpath):
@@ -283,9 +302,9 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
         return
 
     aid = "auto"
-    if fullpath != path:
+    if fullpath != filepath:
         try:
-            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fields["Id"])
+            m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", path)
             video_id = m.group(1)
             aid = media.getAudioId(video_id)
         except:
@@ -309,6 +328,14 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
     if p != None and p.poll() is None:
         p.kill()
 
+    config = mw.addonManager.getConfig(__name__)
+    fileext = os.path.splitext(path)[-1]
+
+    if config["new video player (experimental)"]:
+        if fileext not in ['.mp3', '.m4b', '.wav', '.aac', '.m4a', '.ogg', '.flac', '.wma']:
+            playVideoClip2(fullpath, time_start, time_end, aid)
+            return
+
     if with_bundled_libs:
         p = subprocess.Popen(cmd, cwd=mw.col.media.dir())
         return
@@ -316,8 +343,257 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
     with no_bundled_libs():
         p = subprocess.Popen(cmd, cwd=mw.col.media.dir())
 
+videoPlayer = None
+
+def playVideoClip2(fullpath, time_start, time_end, aid):
+    global videoPlayer
+    if videoPlayer is None:
+        setupVideoPlayer()
+    videoPlayer.playVideo(fullpath, time_start, time_end, aid)
+
+if is_win:
+    import win32gui
+    import win32process
+    import win32con
+    import win32api
+
+def get_executable_path(pid):
+    try:
+        process_handle = win32api.OpenProcess(
+            win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
+            False,
+            pid
+        )
+        modules = win32process.EnumProcessModules(process_handle)
+        if modules:
+            exe_path = win32process.GetModuleFileNameEx(process_handle, modules[0])
+            return exe_path
+    except Exception as e:
+        return f"Error: {e}"
+
+def get_window_position_by_pid(pid):
+    def callback(hwnd, windows):
+        if win32gui.IsWindowVisible(hwnd):
+            _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
+            if found_pid == pid:
+                rect = win32gui.GetWindowRect(hwnd)
+                windows.append((hwnd, rect))
+        return True
+
+    windows = []
+    win32gui.EnumWindows(callback, windows)
+    return windows
+
+from aqt.sound import SoundOrVideoPlayer, AVTag, OnDoneCallback
+
+class MpvManager2(MPV, SoundOrVideoPlayer):
+
+    default_rank = -1
+
+    if not is_lin:
+        default_argv = MPVBase.default_argv + [
+            "--input-media-keys=no",
+        ]
+
+    def __init__(self, base_path: str, media_folder: str) -> None:
+        self.media_folder = media_folder
+        mpvPath, self.popenEnv = _packagedCmd(["mpv"])
+        self.executable = mpvPath[0]
+        self._on_done: OnDoneCallback | None = None
+        self.default_argv += [f"--config-dir={base_path}"]
+        self.geometry = None
+        self.timer = None
+        super().__init__(window_id=None, debug=False)
+
+    def on_init(self) -> None:
+        # if mpv dies and is restarted, tell Anki the
+        # current file is done
+        if self._on_done:
+            self._on_done()
+
+        m = re.search(r"(\d+)\.(\d+)\.(\d+)", self.get_property("mpv-version"))
+        if m:
+            self.mpv_version = (int(m[1]), int(m[2]), int(m[3]))
+        else:
+            self.mpv_version = None
+
+        try:
+            self.command("keybind", "q", "stop")
+            self.command("keybind", "Q", "stop")
+            self.command("keybind", "CLOSE_WIN", "stop")
+            self.command("keybind", "ctrl+w", "stop")
+            self.command("keybind", "ctrl+c", "stop")
+        except MPVCommandError:
+            print("mpv too old for key rebinding")
+
+        config = mw.addonManager.getConfig(__name__)
+        if config["keep video open (experimental)"]:
+            self.set_property("keep-open", "yes")
+        if config["don't show video border and title (experimental)"]:
+            self.set_property("border", "no")
+        self.set_property("include", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "mpv.conf"))
+        self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "settings.lua"))
+        if config["keep video size unchanged (experimental)"]:
+            self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "mpv_geometry_freezer.lua"))
+        self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "crop.lua"))
+        self.set_property("reset-on-next-file", "vf")
+        self.command("keybind", "c", "script-message-to crop toggle-crop")
+        self.command("keybind", "k", "cycle keepaspect-window")
+
+    def play(self, tag: AVTag, on_done: OnDoneCallback) -> None:
+        assert isinstance(tag, SoundOrVideoTag)
+        self._on_done = on_done
+        path = tag.path(self.media_folder)
+
+        if self.mpv_version is None or self.mpv_version >= (0, 38, 0):
+            self.command("loadfile", path, "replace", -1, "pause=no")
+        else:
+            self.command("loadfile", path, "replace", "pause=no")
+        gui_hooks.av_player_did_begin_playing(self, tag)
+
+    def stop(self) -> None:
+        self.command("stop")
+
+    def toggle_pause(self) -> None:
+        self.command("cycle", "pause")
+
+    def seek_relative(self, secs: int) -> None:
+        self.command("seek", secs, "relative")
+
+    def on_property_idle_active(self, value: bool) -> None:
+        if value and self._on_done:
+            from aqt import mw
+
+            mw.taskman.run_on_main(self._on_done)
+
+    def shutdown(self) -> None:
+        self.close()
+
+    # Legacy, not used
+    ##################################################
+
+    togglePause = toggle_pause
+    seekRelative = seek_relative
+
+    def queueFile(self, file: str) -> None:
+        return
+
+    def clearQueue(self) -> None:
+        return
+
+    ##################################################
+
+    def on_start_file(self):
+        config = mw.addonManager.getConfig(__name__)
+        if not config["keep video size unchanged (experimental)"]:
+            return
+        geometry = config.get("window geometry", "")
+        window_size = config["window size"]
+        if geometry:
+            self.set_property("geometry", geometry)
+        elif window_size:
+            self.set_property("geometry", window_size)
+
+    def on_property_geometry(self, value) -> None:
+        self.geometry = value
+        if self.timer:
+            self.timer.cancel()
+        self.timer = threading.Timer(0.5, self.saveWindowSize)
+        self.timer.start()
+
+    def getVersion(self) -> None:
+        try:
+            return self.mpv_version
+        except:
+            m = re.search(r"(\d+)\.(\d+)\.(\d+)", self.get_property("mpv-version"))
+            if m:
+                self.mpv_version = (int(m[1]), int(m[2]), int(m[3]))
+            else:
+                self.mpv_version = None
+            return self.mpv_version
+
+    def saveWindowSize(self) -> None:
+        if self.geometry == '' or self.geometry == "0x0":
+            return
+        m = re.search(r'(\d+%?x\d+%?)', self.geometry)
+        if not m:
+            return
+        window_size = m.group(1)
+        config = mw.addonManager.getConfig(__name__)
+        if config["window size"] != window_size:
+            config["window size"] = window_size
+            mw.addonManager.writeConfig(__name__, config)
+            self.saveWindowPosition()
+
+    def saveWindowPosition(self) -> None:
+        config = mw.addonManager.getConfig(__name__)
+        if is_win:
+            pid = self.get_property('pid')
+            windows = get_window_position_by_pid(pid)
+            if windows:
+                x1, y1, x2, y2 = windows[0][1]
+                height = y2 - y1
+                width = x2 - x1
+                config["window geometry"] = f"{width}x{height}+{x1}+{y1}"
+                mw.addonManager.writeConfig(__name__, config)
+
+    def playVideo(self, fullpath, time_start, time_end, aid):
+        options = ["pause=no"]
+        if time_start != -1:
+            options += ["start={}".format(time_start)]
+        if time_end != -1:
+            options += ["end={}".format(time_end)]
+        options += ["aid={}".format(aid)]
+        config = mw.addonManager.getConfig(__name__)
+        # if mw.reviewer.state == "answer" and config["play video on backside with subtitles (experimental)"]:
+        #     options += ["sub-visibility=yes"]
+        af_d = float(config["audio fade in/out"])
+        if af_d and time_end != -1:
+            options.append("af=[afade=t=out:st=%s:d=%s]" % (time_end - af_d, af_d))
+        options = ",".join(options)
+        mpv_version = self.getVersion()
+        if mpv_version is None or mpv_version >= (0, 38, 0):
+            self.command("loadfile", fullpath, "replace", -1, options)
+        else:
+            self.command("loadfile", fullpath, "replace", options)
+
+def setupVideoPlayer():
+    config = mw.addonManager.getConfig(__name__)
+    if not config["new video player (experimental)"]:
+        return
+    global videoPlayer
+    if videoPlayer:
+        return
+    videoPlayer = MpvManager2(mw.pm.base, mw.col.media.dir())
+
+def closeVideoPlayer(new_state, old_state):
+    if new_state == "deckBrowser" or (new_state == "overview" and old_state == "review"):
+        global videoPlayer
+        if not videoPlayer:
+            return
+        if not videoPlayer.is_running():
+            return
+        videoPlayer.saveWindowPosition()
+        videoPlayer.command("stop")
+
+gui_hooks.profile_did_open.append(setupVideoPlayer)
+
+gui_hooks.state_did_change.append(closeVideoPlayer)
+
+def on_addon_config(text, addon):
+    if addon not in ["movies2anki", "939347702"]:
+        return text
+    global videoPlayer
+    if videoPlayer:
+        videoPlayer.shutdown()
+        videoPlayer = None
+    return text
+
+gui_hooks.addon_config_editor_will_update_json.append(on_addon_config)
+
 def queueExternalAV(self, path):
-    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
+    is_addon = card_notetype.startswith("movies2anki") if card_notetype else False
+    if is_addon:
         queueExternal(path)
     else:
         _player(path)
@@ -325,7 +601,8 @@ def queueExternalAV(self, path):
 def queueExternal(path):
     global p, _player
 
-    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
+    is_addon = card_notetype.startswith("movies2anki") if card_notetype else False
+    if is_addon:
         # if mw.reviewer.state == "answer" and path.endswith(".mp4"):
         #     return
 
@@ -344,10 +621,42 @@ def queueExternal(path):
         _player(path)
 
 def _stopPlayer():
-    global p
+    global p, videoPlayer
+
+    is_addon = card_notetype.startswith("movies2anki") if card_notetype else False
+
+    if videoPlayer and videoPlayer.is_running():
+        config = mw.addonManager.getConfig(__name__)
+        if is_addon and config["keep video open (experimental)"]:
+            videoPlayer.set_property("pause", "yes")
+        else:
+            videoPlayer.command("stop")
 
     if p != None and p.poll() is None:
         p.kill()
+
+card_context = None
+card_notetype = None
+
+import aqt
+
+def on_will_play_tags(tags, side, context):
+    global card_context, card_notetype
+    if isinstance(context, aqt.reviewer.Reviewer):
+        card_context = "reviewer"
+        card_notetype = context.card.note_type()["name"]
+    elif isinstance(context, aqt.clayout.CardLayout):
+        card_context = "card layout"
+        card_notetype = context.note.note_type()["name"]
+    elif isinstance(context, aqt.browser.previewer.BrowserPreviewer):
+        card_context = "browser previewer"
+        card_notetype = context.card().note_type()["name"]
+    else:
+        card_context = None
+        card_notetype = None
+    _stopPlayer()
+
+gui_hooks.av_player_will_play_tags.append(on_will_play_tags)
 
 addHook("unloadProfile", _stopPlayer)
 atexit.register(_stopPlayer)
@@ -375,7 +684,7 @@ _queueEraser = sound._queueEraser
 sound._queueEraser = clearExternalQueue
 
 def adjustAudio(state, shift=None):
-    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
+    if card_context == "reviewer" and card_notetype and card_notetype.startswith("movies2anki"):
         try:
             clearExternalQueue()
             oldcwd = os.getcwd()
@@ -458,7 +767,7 @@ def addShortcutKeys(state, shortcuts):
 gui_hooks.state_shortcuts_will_change.append(addShortcutKeys)
 
 def replayVideo(isEnd=True, isPrev=False, isNext=False):
-    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
+    if card_context == "reviewer" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
         clearExternalQueue()
         oldcwd = os.getcwd()
         os.chdir(mw.col.media.dir())
@@ -468,7 +777,7 @@ def replayVideo(isEnd=True, isPrev=False, isNext=False):
 def joinCard(isPrev=False, isNext=False):
     config = mw.addonManager.getConfig(__name__)
 
-    if mw.state == "review" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
+    if card_context == "reviewer" and mw.reviewer.card != None and (mw.reviewer.card.note_type()["name"] == "movies2anki (add-on)" or mw.reviewer.card.note_type()["name"].startswith("movies2anki - subs2srs")):
         audio_filename = mw.reviewer.card.note()["Audio"]
         m = re.search(r'\[sound:(.+?)\]', audio_filename)
         if m:

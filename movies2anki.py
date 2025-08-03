@@ -379,13 +379,13 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
     config = mw.addonManager.getConfig(__name__)
     join_lines_separator = config["join lines with"]
 
+    sentence_duration_limit = -1
+
     if is_split_long_phrases:
         sentence_duration_limit = phrases_duration_limit
-    else:
-        sentence_duration_limit = 20
 
-    if config["maximum subtitle duration"] != 0:
-        sentence_duration_limit = config["maximum subtitle duration"]
+    if config["sentence duration limit"] != 0:
+        sentence_duration_limit = config["sentence duration limit"]
 
     subs = []
     for sub in en_subs:
@@ -435,7 +435,7 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
                 subs.append((sub_start, sub_end, sub_content_original))
             # elif (prev_sub_content.endswith(u"?") or prev_sub_content.endswith(u"？")) and join_questions_with_answers and (sub_start - prev_sub_end) <= 5:
             #     subs[-1] = (prev_sub_start, sub_end, prev_sub_content_original + join_sentences_separator + sub_content_original)
-            elif flag and (sub_end - prev_sub_start) <= sentence_duration_limit:
+            elif flag and (sentence_duration_limit == -1 or (sub_end - prev_sub_start) <= sentence_duration_limit):
                 subs[-1] = (prev_sub_start, sub_end, prev_sub_content_original + join_lines_separator + sub_content_original)
             else:
                 subs.append((sub_start, sub_end, sub_content_original))
@@ -450,13 +450,13 @@ def join_questions(en_subs, ru_subs, is_gap_phrases, is_split_long_phrases, phra
 
     subs = []
 
+    sentence_duration_limit = -1
+
     if is_split_long_phrases:
         sentence_duration_limit = phrases_duration_limit
-    else:
-        sentence_duration_limit = 20
 
-    if config["maximum subtitle duration"] != 0:
-        sentence_duration_limit = config["maximum subtitle duration"]
+    if config["sentence duration limit"] != 0:
+        sentence_duration_limit = config["sentence duration limit"]
 
     subs2 = []
     for i, sub in enumerate(en_subs):
@@ -491,7 +491,7 @@ def join_questions(en_subs, ru_subs, is_gap_phrases, is_split_long_phrases, phra
             # if sub_content.endswith('?') and not sub_content.startswith('- '):
             #     flag = False
 
-            if flag and (prev_sub_content.endswith(u"?") or prev_sub_content.endswith(u"？")) and (sub_start - prev_sub_end) <= 1 and (sub_end - prev_sub_start) <= sentence_duration_limit:
+            if flag and (prev_sub_content.endswith(u"?") or prev_sub_content.endswith(u"？")) and (sub_start - prev_sub_end) <= 1 and (sentence_duration_limit == -1 or (sub_end - prev_sub_start) <= sentence_duration_limit):
                 subs[-1] = (prev_sub_start, sub_end, prev_sub_content_original + join_sentences_separator + sub_content_original)
                 if ru_subs:
                     subs2[-1] = (prev_sub_start, sub_end, prev_sub2_content_original + join_sentences_separator + sub2_content_original)
