@@ -436,6 +436,8 @@ class MpvManager2(MPV, SoundOrVideoPlayer):
         if config["keep video size unchanged (experimental)"]:
             self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "mpv_geometry_freezer.lua"))
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "crop.lua"))
+        self.set_property("save-position-on-quit", "yes")
+        self.set_property("resume-playback", "no")
         self.set_property("reset-on-next-file", "vf")
         self.command("keybind", "c", "script-message-to crop toggle-crop")
         self.command("keybind", "k", "cycle keepaspect-window")
@@ -500,6 +502,9 @@ class MpvManager2(MPV, SoundOrVideoPlayer):
             self.timer.cancel()
         self.timer = threading.Timer(0.5, self.saveWindowSize)
         self.timer.start()
+
+    def on_property_vf(self, value) -> None:
+        self.command("write-watch-later-config")
 
     def getVersion(self) -> None:
         try:
