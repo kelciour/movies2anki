@@ -401,6 +401,8 @@ class MpvManager2(MPV, SoundOrVideoPlayer):
         self.executable = mpvPath[0]
         self._on_done: OnDoneCallback | None = None
         self.default_argv += [f"--config-dir={base_path}"]
+        self.default_argv += [f"--load-auto-profiles=yes"]
+        self.default_argv += [f"--include={os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "mpv.conf")}"]
         self.geometry = None
         self.timer = None
         super().__init__(window_id=None, debug=False)
@@ -429,13 +431,11 @@ class MpvManager2(MPV, SoundOrVideoPlayer):
         config = mw.addonManager.getConfig(__name__)
         if config["keep video open (experimental)"]:
             self.set_property("keep-open", "yes")
-        if config["don't show video border and title (experimental)"]:
-            self.set_property("border", "no")
-        self.set_property("include", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "mpv.conf"))
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "settings.lua"))
         if config["keep video size unchanged (experimental)"]:
             self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "mpv_geometry_freezer.lua"))
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "crop.lua"))
+        self.set_property("watch-later-options-remove", "geometry")
         self.set_property("save-position-on-quit", "yes")
         self.set_property("resume-playback", "no")
         self.set_property("reset-on-next-file", "vf")
@@ -485,16 +485,17 @@ class MpvManager2(MPV, SoundOrVideoPlayer):
 
     ##################################################
 
-    def on_start_file(self):
+    def get_window_size_and_position(self):
         config = mw.addonManager.getConfig(__name__)
         if not config["keep video size unchanged (experimental)"]:
-            return
+            return ""
         geometry = config.get("window geometry", "")
-        window_size = config["window size"]
         if geometry:
-            self.set_property("geometry", geometry)
-        elif window_size:
-            self.set_property("geometry", window_size)
+            return geometry
+        window_size = config["window size"]
+        if window_size:
+            return window_size
+        return ""
 
     def on_property_geometry(self, value) -> None:
         self.geometry = value
@@ -555,6 +556,12 @@ class MpvManager2(MPV, SoundOrVideoPlayer):
         af_d = float(config["audio fade in/out"])
         if af_d and time_end != -1:
             options.append("af=[afade=t=out:st=%s:d=%s]" % (time_end - af_d, af_d))
+        if config["keep video size unchanged (experimental)"]:
+            geometry = self.get_window_size_and_position()
+            if geometry:
+                options.append(f"geometry={geometry}")
+        if config["don't show video border and title (experimental)"]:
+            options.append(f"border=no")
         options = ",".join(options)
         mpv_version = self.getVersion()
         if mpv_version is None or mpv_version >= (0, 38, 0):
