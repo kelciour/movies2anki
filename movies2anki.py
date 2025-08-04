@@ -897,7 +897,7 @@ class Model(object):
         self.is_create_clips_with_softsub = False
         self.is_create_clips_with_hardsub = False
         self.hardsub_style = "FontName=Arial,FontSize=24,OutlineColour=&H5A000000,BorderStyle=3"
-        self.is_ignore_sdh_subtitle = True
+        self.is_ignore_sdh_subtitle = False
         self.is_add_dir_to_media_path = False
 
         # self.join_lines_that_end_with = r"\.\.\. , → [\u4e00-\u9fef]"
@@ -1040,7 +1040,7 @@ class Model(object):
 
         subs2 = format_subtitles(subs2, is_ignore_SDH, is_gap_phrases)
 
-        subs2 = filter_subtitles(subs2, is_ignore_SDH, is_gap_phrases)
+        # subs2 = filter_subtitles(subs2, is_ignore_SDH, is_gap_phrases)
 
         return subs2
 
