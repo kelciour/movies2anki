@@ -218,11 +218,12 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
 
         if card_context == "reviewer":
             time_interval = "%s-%s" % (secondsToTime(time_start), secondsToTime(time_end))
-            mw.reviewer.card.note()["Id"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+", "_%s" % time_interval, fields["Id"])
-            mw.reviewer.card.note()["Audio"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Audio"])
-            if "Video" in mw.reviewer.card.note():
+            note = mw.reviewer.card.note()
+            note["Id"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+", "_%s" % time_interval, fields["Id"])
+            note["Audio"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Audio"])
+            if "Video" in note:
                 mw.reviewer.card.note()["Video"] = re.sub(r"_\d+\.\d\d\.\d\d\.\d+-\d+\.\d\d\.\d\d\.\d+\.", "_%s." % time_interval, fields["Video"])
-            mw.reviewer.card.note().flush()
+            mw.col.update_note(note)
 
     if VLC_DIR:
         default_args = ["-I", "dummy", "--play-and-exit", "--no-video-title", "--video-on-top", "--sub-track=8"]
@@ -904,7 +905,7 @@ def joinCard(isPrev=False, isNext=False):
 
         mw.checkpoint(_("Delete"))
 
-        c.flush()
+        mw.col.update_note(c)
 
         if isPrev:
             cd = prev_card
@@ -1214,7 +1215,7 @@ def setProgressText(text):
 def saveNote(nid, fld, val):
     note = mw.col.get_note(int(nid))
     note[fld] = val
-    note.flush()
+    mw.col.update_note(note)
 
 def finishProgressDialog(time_diff, errors, worker_errors, parent=mw):
     mw.progressDialog.done(0)
@@ -1441,12 +1442,12 @@ def update_media(browser=False):
             m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Audio"])
             if m:
                 note['Id'] = '{}_{}-{}'.format(*m.groups())
-                note.flush()
+                mw.col.update_note(note)
         if not m and "Video" in note:
             m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Video"])
             if m:
                 note['Id'] = '{}_{}-{}'.format(*m.groups())
-                note.flush()
+                mw.col.update_note(note)
         if not m:
             errors.append(note.id)
             continue

@@ -1170,7 +1170,7 @@ class Model(object):
                 video = prefix + ".media/" + video
 
             # New Anki Card
-            note = mw.col.newNote(forDeck=False)
+            note = mw.col.new_note(model)
 
             note["Id"] = prefix + "_" + start_time + "-" + end_time
             # note["Audio"] = "[sound:" + sound + "]"
@@ -1209,7 +1209,7 @@ class Model(object):
 
             note.note_type()['did'] = did
 
-            mw.col.addNote(note)
+            mw.col.add_note(note, did)
 
             # f_out.write(self.encode_str(tag + "\t" + sequence + "\t[sound:" + sound + "]\t[sound:" + video + "]\t"))
             # f_out.write(self.encode_str(en_sub))

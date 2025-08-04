@@ -182,7 +182,7 @@ def updateNotes(browser, nids):
     def saveNote(nid, fld, val):
         note = mw.col.get_note(int(nid))
         note[fld] = "[sound:%s]" % val
-        note.flush()
+        mw.col.update_note(note)
 
     def finishProgressDialog(time_diff):
         progressDialog.done(0)
