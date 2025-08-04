@@ -1532,7 +1532,7 @@ def update_media(browser=False):
                 with no_bundled_libs():
                     cmd = [mpv_executable, "--vo=null", "--ao=null", "--frames=0", "--quiet", "--no-cache", "--", video_path]
                     with tempfile.TemporaryFile() as tmpfile:
-                        subprocess.check_call(cmd, startupinfo=info, encoding='utf-8', stdout=tmpfile, timeout=5)
+                        subprocess.check_call(cmd, startupinfo=info, encoding='utf-8', stdout=tmpfile, timeout=15)
                         tmpfile.seek(0)
                         mpv_output = tmpfile.read().decode('utf-8').strip()
                 for line in mpv_output.splitlines():
