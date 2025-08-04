@@ -1,14 +1,17 @@
 from typing import Dict, Type
 
-from .formatbase import FormatBase
+from .base import FormatBase
 from .microdvd import MicroDVDFormat
+from .sami import SAMIFormat
 from .subrip import SubripFormat
 from .jsonformat import JSONFormat
 from .substation import SubstationFormat
 from .mpl2 import MPL2Format
 from .tmp import TmpFormat
+from .ttml import TTMLFormat
 from .webvtt import WebVTTFormat
-from .exceptions import *
+from .whisper import WhisperJAXFormat
+from ..exceptions import UnknownFormatIdentifierError, UnknownFileExtensionError, FormatAutodetectionError
 
 #: Dict mapping file extensions to format identifiers.
 FILE_EXTENSION_TO_FORMAT_IDENTIFIER: Dict[str, str] = {
@@ -19,6 +22,9 @@ FILE_EXTENSION_TO_FORMAT_IDENTIFIER: Dict[str, str] = {
     ".json": "json",
     ".txt": "tmp",
     ".vtt": "vtt",
+    ".sami": "sami",
+    ".smi": "sami",
+    ".ttml": "ttml",
 }
 
 #: Dict mapping format identifiers to implementations (FormatBase subclasses).
@@ -31,6 +37,9 @@ FORMAT_IDENTIFIER_TO_FORMAT_CLASS: Dict[str, Type[FormatBase]] = {
     "mpl2": MPL2Format,
     "tmp": TmpFormat,
     "vtt": WebVTTFormat,
+    "sami": SAMIFormat,
+    "whisper_jax": WhisperJAXFormat,
+    "ttml": TTMLFormat,
 }
 
 FORMAT_IDENTIFIERS = list(FORMAT_IDENTIFIER_TO_FORMAT_CLASS.keys())
@@ -75,6 +84,6 @@ def autodetect_format(content: str) -> str:
     if len(formats) == 1:
         return formats.pop()
     elif not formats:
-        raise FormatAutodetectionError("No suitable formats")
+        raise FormatAutodetectionError(content=content, formats=[])
     else:
-        raise FormatAutodetectionError(f"Multiple suitable formats ({formats!r})")
+        raise FormatAutodetectionError(content=content, formats=list(formats))
