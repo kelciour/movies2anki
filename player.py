@@ -437,8 +437,6 @@ class MpvManager2(MPV, SoundOrVideoPlayer):
         if config["keep video size unchanged (experimental)"]:
             self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "mpv_geometry_freezer.lua"))
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "crop.lua"))
-        self.command("keybind", "c", "script-message-to crop toggle-crop")
-        self.command("keybind", "k", "cycle keepaspect-window")
 
     def play(self, tag: AVTag, on_done: OnDoneCallback) -> None:
         assert isinstance(tag, SoundOrVideoTag)
