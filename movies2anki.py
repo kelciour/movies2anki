@@ -7,6 +7,7 @@ from aqt.qt import *
 
 from aqt.utils import showInfo
 from anki.utils import call, no_bundled_libs, is_mac, is_win
+from anki.collection import AddNoteRequest
 
 from .utils import format_filename
 
@@ -1143,6 +1144,8 @@ class Model(object):
         mw.col.models.set_current(model)
         did = mw.col.decks.id(self.deck_name)
 
+        requests = []
+
         for idx in range(len(en_subs)):
             start_time = seconds_to_tsv_time(en_subs[idx][0])
             end_time = seconds_to_tsv_time(en_subs[idx][1])
@@ -1209,7 +1212,7 @@ class Model(object):
 
             note.note_type()['did'] = did
 
-            mw.col.add_note(note, did)
+            requests.append(AddNoteRequest(note, did))
 
             # f_out.write(self.encode_str(tag + "\t" + sequence + "\t[sound:" + sound + "]\t[sound:" + video + "]\t"))
             # f_out.write(self.encode_str(en_sub))
@@ -1229,6 +1232,8 @@ class Model(object):
 
         if mw.state == "deckBrowser":
             mw.col.decks.select(did)
+
+        mw.col.add_notes(requests)
 
         mw.reset()
 
