@@ -246,9 +246,9 @@ def format_subtitles(subs, is_ignore_SDH, is_gap_phrases):
 
             sub_content = sub_content.strip()
 
-        sub_content = re.sub(r'\]', '] ', sub_content)
+        # sub_content = re.sub(r'\]', '] ', sub_content)
         sub_content = re.sub(r'\s+', ' ', sub_content)
-        sub_content = re.sub(r'(\w\w)\.([A-Z]\w\w)', r'\1 \2', sub_content)
+        # sub_content = re.sub(r'(\w\w)\.([A-Z]\w\w)', r'\1 \2', sub_content)
         subs2.append((sub_start, sub_end, sub_content))
     return subs2
 
