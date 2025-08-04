@@ -230,7 +230,7 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
             default_args += ["--dummy-quiet"]
         default_args += ["--no-sub-autodetect-file"]
     else:
-        default_args = ["--pause=no", "--script=%s" % os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "settings.lua")]
+        default_args = ["--pause=no"]
         default_args += ["--sub-visibility=no", "--no-resume-playback", "--save-position-on-quit=no"]
         default_args += ["--ontop"]
 
@@ -400,9 +400,10 @@ class MpvManager2(MPV, SoundOrVideoPlayer):
         mpvPath, self.popenEnv = _packagedCmd(["mpv"])
         self.executable = mpvPath[0]
         self._on_done: OnDoneCallback | None = None
-        self.default_argv += [f"--config-dir={base_path}"]
-        self.default_argv += [f"--load-auto-profiles=yes"]
-        self.default_argv += [f"--include={os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files", "mpv.conf")}"]
+        self.default_argv += [f"--config-dir={os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files")}"]
+        self.default_argv += ["--load-auto-profiles=yes"]
+        self.default_argv += ["--save-position-on-quit=yes"]
+        self.default_argv += ["--reset-on-next-file=all"]
         self.geometry = None
         self.timer = None
         super().__init__(window_id=None, debug=False)
@@ -431,14 +432,11 @@ class MpvManager2(MPV, SoundOrVideoPlayer):
         config = mw.addonManager.getConfig(__name__)
         if config["keep video open (experimental)"]:
             self.set_property("keep-open", "yes")
-        self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "settings.lua"))
+        if config["don't show video border and title (experimental)"]:
+            self.set_property("border", "no")
         if config["keep video size unchanged (experimental)"]:
             self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "mpv_geometry_freezer.lua"))
         self.command("load-script", os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_scripts", "crop.lua"))
-        self.set_property("watch-later-options-remove", "geometry")
-        self.set_property("save-position-on-quit", "yes")
-        self.set_property("resume-playback", "no")
-        self.set_property("reset-on-next-file", "vf")
         self.command("keybind", "c", "script-message-to crop toggle-crop")
         self.command("keybind", "k", "cycle keepaspect-window")
 
@@ -547,6 +545,8 @@ class MpvManager2(MPV, SoundOrVideoPlayer):
         options = ["pause=no"]
         if time_start != -1:
             options += ["start={}".format(time_start)]
+        else:
+            options += ["start={}".format(0)]
         if time_end != -1:
             options += ["end={}".format(time_end)]
         options += ["aid={}".format(aid)]
@@ -560,8 +560,6 @@ class MpvManager2(MPV, SoundOrVideoPlayer):
             geometry = self.get_window_size_and_position()
             if geometry:
                 options.append(f"geometry={geometry}")
-        if config["don't show video border and title (experimental)"]:
-            options.append(f"border=no")
         options = ",".join(options)
         mpv_version = self.getVersion()
         if mpv_version is None or mpv_version >= (0, 38, 0):
