@@ -1764,12 +1764,14 @@ class MainDialog(QDialog):
                 for line in mpv_output.splitlines():
                     is_selected = False
                     line = line.strip()
-                    if line.startswith('(+) Audio '):
-                        is_selected = True
-                        line = line.replace('(+) Audio ', 'Audio ')
-                    if not line.startswith('Audio '):
+                    m = re.search(r'^\(?(.)\)? (Audio .+)', line)
+                    if m:
+                        prefix, line = m.groups()
+                        if prefix in ['+', '●']:
+                            is_selected = True
+                    if line.endswith(' (external)') or line.endswith(' [external]'):
                         continue
-                    if line.endswith(' (external)'):
+                    if not line.startswith('Audio'):
                         continue
                     idx, language, title = '', '', ''
                     for s in line.split():
