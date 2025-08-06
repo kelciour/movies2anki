@@ -933,7 +933,7 @@ class MediaWorker(QThread):
     updateNote = pyqtSignal(str, str, str)
     jobFinished = pyqtSignal(float)
 
-    def __init__(self, data, map_ids):
+    def __init__(self, data, map_ids, match_errors):
         QThread.__init__(self)
 
         self.data = data
@@ -941,6 +941,7 @@ class MediaWorker(QThread):
         self.fp = None
         self.map_ids = map_ids
         self.errors = []
+        self.match_errors = match_errors
 
         if os.environ.get("ADDON_DEBUG"):
             logger.setLevel(logging.DEBUG)
@@ -969,7 +970,11 @@ class MediaWorker(QThread):
 
             fld = note["Audio"]
 
-            time_start, time_end = re.match(r"^.*?_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fld).groups()
+            m = re.match(r"^.*?_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", fld)
+            if not m:
+                self.match_errors += [note.id]
+                continue
+            time_start, time_end = m.groups()
 
             time_start_seconds = timeToSeconds(time_start)
             time_end_seconds = timeToSeconds(time_end)
@@ -1241,7 +1246,7 @@ def finishProgressDialog(time_diff, errors, worker_errors, parent=mw):
     if not msg:
         QMessageBox.information(parent, "movies2anki", message)
     else:
-        showText(message + '\n\n' + msg, parent=mw)
+        showText(message + '\n\n' + msg, parent=parent)
 
 class AudioInfo(QDialog):
 
@@ -1436,6 +1441,7 @@ def update_media(browser=False):
     skipped = []
     videos = []
     errors = []
+    tmp = []
     for idx, note in enumerate(data):
         m = re.match(r"^(.*?)_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+).*$", note["Id"])
         if not m:
@@ -1451,6 +1457,7 @@ def update_media(browser=False):
         if not m:
             errors.append(note.id)
             continue
+        tmp.append(note)
         video_id = m.group(1)
         if video_id in skipped:
             continue
@@ -1476,6 +1483,7 @@ def update_media(browser=False):
             map_ids[video_path] = aid
         except:
             print(traceback.format_exc())
+    data = tmp
 
     if skipped:
         msg = "Skipped {} videos. The path can't be found.".format(len(skipped))
@@ -1631,7 +1639,7 @@ def update_media(browser=False):
 
     QApplication.instance().processEvents()
 
-    mw.worker = MediaWorker(data, map_ids)
+    mw.worker = MediaWorker(data, map_ids, errors)
     mw.worker.updateProgress.connect(setProgress)
     mw.worker.updateProgressText.connect(setProgressText)
     mw.worker.updateNote.connect(saveNote)
