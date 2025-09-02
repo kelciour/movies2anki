@@ -332,6 +332,9 @@ def playVideoClip(path=None, state=None, shift=None, isEnd=True, isPrev=False, i
     config = mw.addonManager.getConfig(__name__)
     fileext = os.path.splitext(path)[-1]
 
+    if isEnd == False:
+        time_end = -1
+
     if config["new video player (experimental)"]:
         if fileext not in ['.mp3', '.m4b', '.wav', '.aac', '.m4a', '.ogg', '.flac', '.wma']:
             playVideoClip2(fullpath, time_start, time_end, aid)
