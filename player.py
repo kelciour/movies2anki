@@ -405,7 +405,6 @@ class MpvManager2(MPV, SoundOrVideoPlayer):
         self.executable = mpvPath[0]
         self._on_done: OnDoneCallback | None = None
         self.default_argv += [f"--config-dir={os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files")}"]
-        self.default_argv += ["--load-auto-profiles=yes"]
         self.default_argv += ["--save-position-on-quit=yes"]
         self.default_argv += ["--reset-on-next-file=all"]
         self.geometry = None
