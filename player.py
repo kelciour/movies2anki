@@ -592,13 +592,18 @@ gui_hooks.profile_did_open.append(setupVideoPlayer)
 
 gui_hooks.state_did_change.append(closeVideoPlayer)
 
-def on_addon_config(text, addon):
-    if addon not in ["movies2anki", "939347702"]:
-        return text
+def shutdownVideoPlayer():
     global videoPlayer
     if videoPlayer:
         videoPlayer.shutdown()
         videoPlayer = None
+
+gui_hooks.profile_will_close.append(shutdownVideoPlayer)
+
+def on_addon_config(text, addon):
+    shutdownVideoPlayer()
+    if addon not in ["movies2anki", "939347702"]:
+        return text
     return text
 
 gui_hooks.addon_config_editor_will_update_json.append(on_addon_config)
