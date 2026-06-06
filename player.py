@@ -1231,7 +1231,7 @@ def saveNote(nid, fld, val):
     note[fld] = val
     mw.col.update_note(note)
 
-def finishProgressDialog(time_diff, errors, worker_errors, parent=mw):
+def finishProgressDialog(time_diff, errors, worker_errors, editor_note_id, browser, parent=mw):
     mw.progressDialog.done(0)
     minutes = int(time_diff / 60)
     seconds = int(time_diff % 60)
@@ -1256,6 +1256,10 @@ def finishProgressDialog(time_diff, errors, worker_errors, parent=mw):
         QMessageBox.information(parent, "movies2anki", message)
     else:
         showText(message + '\n\n' + msg, parent=parent)
+    if editor_note_id is not None:
+        note = mw.col.get_note(editor_note_id)
+        browser.editor.set_note(note, hide=False)
+    mw.reset()
 
 class AudioInfo(QDialog):
 
@@ -1524,6 +1528,11 @@ def update_media(browser=False):
 
     is_multi_audio_streams = False
 
+    if browser and browser.editor and browser.editor.note:
+        editor_note_id = browser.editor.note.id
+    else:
+        editor_note_id = None
+
     mw.progressDialog.setWindowTitle("[movies2anki] Processing Audio Streams...")
 
     for video_path in videos:
@@ -1652,7 +1661,7 @@ def update_media(browser=False):
     mw.worker.updateProgress.connect(setProgress)
     mw.worker.updateProgressText.connect(setProgressText)
     mw.worker.updateNote.connect(saveNote)
-    mw.worker.jobFinished.connect(lambda x: finishProgressDialog(x, errors, mw.worker.errors, parent))
+    mw.worker.jobFinished.connect(lambda x: finishProgressDialog(x, errors, mw.worker.errors, editor_note_id, browser, parent))
     mw.worker.start()
 
 # Fix if "Replay buttons on card" add-on isn't installed
