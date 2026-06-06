@@ -6,6 +6,7 @@ import logging
 import tempfile
 import traceback
 import threading
+import shutil
 
 try:
     from aqt.sound import play, _packagedCmd, si
@@ -1103,8 +1104,8 @@ class MediaWorker(QThread):
                     break
 
                 if os.path.exists(audio_temp_filepath):
-                    fname = mw.col.media.add_file(audio_temp_filepath)
-                    fname = f"[sound:{html.escape(fname, quote=False)}]"
+                    shutil.copy(audio_temp_filepath, os.path.join(mw.col.media.dir(), audio_filename))
+                    fname = f"[sound:{html.escape(audio_filename, quote=False)}]"
 
                     if "Audio Sound" in note:
                         self.updateNote.emit(str(note.id), "Audio Sound", fname)
@@ -1184,8 +1185,8 @@ class MediaWorker(QThread):
                     break
 
                 if os.path.exists(video_temp_filepath):
-                    fname = mw.col.media.add_file(video_temp_filepath)
-                    fname = f"[sound:{html.escape(fname, quote=False)}]"
+                    shutil.copy(video_temp_filepath, os.path.join(mw.col.media.dir(), video_filename))
+                    fname = f"[sound:{html.escape(video_filename, quote=False)}]"
 
                     if "Video Sound" in note:
                         self.updateNote.emit(str(note.id), "Video Sound", fname)
