@@ -1137,7 +1137,8 @@ class MediaWorker(QThread):
                     cmd += ["-t", "{:.3f}".format(t)]
                     if af_params:
                         cmd += ["-af", af_params]
-                    cmd += ["-map", "0:v:0", "-map", "0:a:{}".format(audio_id-1), "-ac", "2", "-vf", "scale='min(%s,iw)':'min(%s,ih)',setsar=1" % (video_width, video_height)]
+                    cmd += ["-map", "0:a:{}".format(audio_id-1), "-ac", "2"]
+                    cmd += ["-filter_complex", "scale=iw*sar:ih,scale='min(%s,iw)*sar':'min(%s,ih)':out_color_matrix=bt601:out_range=pc" % (video_width, video_height)]
                     cmd += ["-pix_fmt", "yuv420p"]
                     cmd += ["-sn"]
                     cmd += ["-map_metadata", "-1"]
