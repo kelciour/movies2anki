@@ -1117,6 +1117,80 @@ class MediaWorker(QThread):
                     else:
                         self.updateNote.emit(str(note.id), "Audio", fname)
 
+            snapshot_filename = ""
+            screenshot_width = config["~screenshot_width"]
+            screenshot_height = config["~screenshot_height"]
+            if "Snapshot" in note:
+                snapshot_filename = note["Snapshot"]
+                # pylib/anki/media.py
+                m = re.search(r"(?i)(<(?:img|audio|source)\b[^>]* src=(?P<str>[\"'])(?P<fname>[^>]+?)(?P=str)[^>]*>)", snapshot_filename)
+                if m:
+                    snapshot_filename = m.group("fname")
+                else:
+                    m = re.search(r"(?i)(<(?:img|audio|source)\b[^>]* src=(?!['\"])(?P<fname>[^ >]+)[^>]*?>)", snapshot_filename)
+                    if m:
+                        snapshot_filename = m.group("fname")
+
+                snapshot_time = ''
+                if snapshot_filename:
+                    if note.note_type()["name"] == "movies2anki - subs2srs (video)":
+                        snapshot_time = ss
+                    else:
+                        m = re.match(r"^.*?_(\d+\.\d\d\.\d\d\.\d+)-(\d+\.\d\d\.\d\d\.\d+)\.*$", snapshot_filename)
+                        if m:
+                            snapshot_start = timeToSeconds(m.group(1))
+                            snapshot_end = timeToSeconds(m.group(2))
+                            snapshot_time = secondsToTime(snapshot_start + (snapshot_end - snapshot_start) / 2.0, sep=":")
+                        else:
+                            m = re.match(r"^.*?_(\d+\.\d\d\.\d\d\.\d+)\.*$", snapshot_filename)
+                            if m:
+                                snapshot_time = secondsToTime(timeToSeconds(m.group(1)), sep=":")
+
+                if snapshot_filename and snapshot_time and not os.path.exists(os.path.join(mw.col.media.dir(), snapshot_filename)):
+                    self.fp = None
+                    snapshot_temp_filepath = os.path.join(tmpdir(), snapshot_filename)
+
+                    if ffmpeg_executable:
+                        cmd = [ffmpeg_executable, "-y", "-ss", snapshot_time, "-i", note_video_path, "-loglevel", "quiet", "-filter_complex", "scale=iw*sar:ih,scale='min(%s,iw)*sar':'min(%s,ih)':out_color_matrix=bt601:out_range=pc" % (screenshot_width, screenshot_height), "-vframes", "1", "-qscale:v", "2", snapshot_temp_filepath]
+                    else:
+                        cmd = [mpv_executable, note_video_path]
+                        # cmd += ["--include=%s" % self.mpvConf]
+                        cmd += ["--start=%s" % snapshot_time]
+                        cmd += ["--audio=no"]
+                        cmd += ["--sub=no"]
+                        # cmd += ["--sub=%s" % sub]
+                        # cmd += ["--sub-visibility=yes"]
+                        # cmd += ["--sub-delay=%f" % self.subsManager.sub_delay]
+                        cmd += ["--frames=1"]
+                        cmd += ["--vf-add=lavfi=[scale='min(%s,iw)':'min(%s,ih)']" % (screenshot_width, screenshot_height)]
+                        cmd += ["--vf-add=format=fmt=yuvj422p"]
+                        cmd += ["--ovc=mjpeg"]
+                        cmd += ["--o=%s" % snapshot_temp_filepath]
+
+                    logger.debug('export_snapshot: {}'.format('Started'))
+                    logger.debug('export_snapshot: {}'.format(join_and_add_double_quotes(cmd)))
+                    if with_bundled_libs:
+                        self.fp = subprocess.Popen(cmd, startupinfo=info, cwd=mw.col.media.dir())
+                        self.fp.wait()
+                    else:
+                        with no_bundled_libs():
+                            self.fp = subprocess.Popen(cmd, startupinfo=info, cwd=mw.col.media.dir())
+                            self.fp.wait()
+                    logger.debug('export_snapshot: {}'.format('Finished'))
+                    retcode = self.fp.returncode
+                    logger.debug('return code: {}'.format(retcode))
+                    if retcode != 0 and not self.canceled:
+                        cmd_debug = join_and_add_double_quotes(cmd)
+                        raise CalledProcessError(retcode, cmd_debug)
+
+                    if self.canceled:
+                        break
+
+                    if os.path.exists(snapshot_temp_filepath):
+                        shutil.copy(snapshot_temp_filepath, os.path.join(mw.col.media.dir(), snapshot_filename))
+                        fname = '<img src="%s">' % html.escape(snapshot_filename, quote=False)
+                        self.updateNote.emit(str(note.id), "Snapshot", fname)
+
             video_filename = ""
             if "Video" in note:
                 video_filename = note["Video"]
@@ -1258,7 +1332,14 @@ def finishProgressDialog(time_diff, errors, worker_errors, editor_note_id, brows
         showText(message + '\n\n' + msg, parent=parent)
     if editor_note_id is not None:
         note = mw.col.get_note(editor_note_id)
-        browser.editor.set_note(note, hide=False)
+        if 'Snapshot' in note:
+            mw.web.page().profile().clearHttpCache()
+            tmp = note['Snapshot']
+            timestamp = int(time.time() * 1000)
+            note['Snapshot'] = note['Snapshot'].replace('.jpg', f'.jpg?t={timestamp}')
+            browser.editor.set_note(note)
+            note['Snapshot'] = tmp
+        browser.editor.set_note(note)
     mw.reset()
 
 class AudioInfo(QDialog):
@@ -1429,9 +1510,25 @@ def update_media(browser=False):
             video_filename = video_filename.replace('[sound:', '')
             video_filename = video_filename.replace(']', '')
 
+        snapshot_filename = ""
+        if "Snapshot" in note:
+            snapshot_filename = note["Snapshot"]
+            # pylib/anki/media.py
+            m = re.search(r"(?i)(<(?:img|audio|source)\b[^>]* src=(?P<str>[\"'])(?P<fname>[^>]+?)(?P=str)[^>]*>)", snapshot_filename)
+            if m:
+                snapshot_filename = m.group("fname")
+            else:
+                m = re.search(r"(?i)(<(?:img|audio|source)\b[^>]* src=(?!['\"])(?P<fname>[^ >]+)[^>]*?>)", snapshot_filename)
+                if m:
+                    snapshot_filename = m.group("fname")
+
+        image_path = os.path.join(mw.col.media.dir(), snapshot_filename)
         audio_path = os.path.join(mw.col.media.dir(), audio_filename)
         video_path = os.path.join(mw.col.media.dir(), video_filename)
-        if ("Audio Sound" in note and note["Audio Sound"] == "") or ("Audio Sound" not in note and ('[sound:' not in note["Audio"] or not os.path.exists(audio_path))):
+
+        if "Snapshot" in note and not os.path.exists(image_path):
+            data.append(note)
+        elif ("Audio Sound" in note and note["Audio Sound"] == "") or ("Audio Sound" not in note and ('[sound:' not in note["Audio"] or not os.path.exists(audio_path))):
             data.append(note)
         elif model in ["movies2anki (add-on)", "movies2anki - subs2srs (video)"] and \
             (("Video Sound" in note and note["Video Sound"] == "") or ("Video Sound" not in note and ('[sound:' not in note["Video"] or not os.path.exists(video_path)))):

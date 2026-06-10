@@ -26,6 +26,7 @@ except:
 from . import media
 
 import json
+import html
 import os
 import re
 import shutil
@@ -1200,7 +1201,7 @@ class Model(object):
                     snapshot_time_filename = prefix + "_" + seconds_to_tsv_time(snapshot_time_seconds) + ".jpg"
                 snapshot_time_ffmpeg = seconds_to_ffmpeg_time(snapshot_time_seconds)
                 # snapshot_time_filename = prefix + "_" + seconds_to_tsv_time(snapshot_time_seconds) + ".jpg"
-                note["Snapshot"] = '<img src="%s">' % snapshot_time_filename
+                note["Snapshot"] = '<img src="%s">' % html.escape(snapshot_time_filename, quote=False)
 
             # if self.model_name == "movies2anki - subs2srs (video)":
             #     note["Video Sound"] = "[sound:{}]".format(video)
@@ -1397,6 +1398,9 @@ class VideoWorker(QThread):
 
         num_files_completed = 0
         num_files = sum(len(files) for files in self.model.ffmpeg_split_timestamps)
+
+        config = mw.addonManager.getConfig(__name__)
+
         for idx in range(len(self.model.ffmpeg_split_timestamps)):
             if self.canceled:
                 break
@@ -1511,7 +1515,8 @@ class VideoWorker(QThread):
                         cmd += ["--ovc=mjpeg"]
                         cmd += ["--o=%s" % os.path.join(mw.col.media.dir(), snapshot_filename)]
 
-                    call(cmd, cwd=mw.col.media.dir())
+                    if not config["skip screenshot generation"]:
+                        call(cmd, cwd=mw.col.media.dir())
                     # self.model.p = Popen(cmd, shell=True, **subprocess_args())
                     # self.model.p.wait()
 

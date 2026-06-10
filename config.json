@@ -11,6 +11,7 @@
 	"condensed_audio_collection.media": false,
 	"condensed_audio_output_directory": "",
 	"audio fade in/out": 0.1,
+	"skip screenshot generation": false,
 	"video width": -2,
 	"video height": 320,
 	"video extension": "webm",
