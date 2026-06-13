@@ -595,7 +595,10 @@ gui_hooks.state_did_change.append(closeVideoPlayer)
 def shutdownVideoPlayer():
     global videoPlayer
     if videoPlayer:
-        videoPlayer.shutdown()
+        try:
+            videoPlayer.shutdown()
+        except Exception:
+            pass
         videoPlayer = None
 
 gui_hooks.profile_will_close.append(shutdownVideoPlayer)
