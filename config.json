@@ -10,7 +10,7 @@
 	"preferred languages for subs 2": "",
 	"condensed_audio_collection.media": false,
 	"condensed_audio_output_directory": "",
-	"audio fade in/out": 0.1,
+	"audio fade in/out": 0.01,
 	"skip screenshot generation": false,
 	"video width": -2,
 	"video height": 320,
