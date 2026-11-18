@@ -397,8 +397,8 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
 
         sub_content = remove_tags(sub_content_original)
 
-        if not sub_content:
-            continue
+        # if not sub_content:
+        #     continue
 
         if len(subs) > 0:
             prev_sub_start = subs[-1][0]
@@ -411,12 +411,12 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
 
             flag = False
             for regex in join_lines_that_end_with.split():
-                if (sub_content[0].isalpha() and sub_content[0].islower()) or re.search(regex + r"$", prev_sub_content):
+                if (sub_content and sub_content[0].isalpha() and sub_content[0].islower()) or re.search(regex + r"$", prev_sub_content):
                     flag = True
                     break
-            if sub_gap < 2.5 and prev_sub_content[-1].islower() and prev_sub_content[-1].isalpha():
+            if sub_gap < 2.5 and prev_sub_content and prev_sub_content[-1].islower() and prev_sub_content[-1].isalpha():
                 flag = True
-            if sub_gap < 2.5 and prev_sub_content[-1] not in '.!?♪' and not sub_content[0].isupper() and (sub_content[0].isalpha() or sub_content[0].isdigit()):
+            if sub_gap < 2.5 and prev_sub_content and prev_sub_content[-1] not in '.!?♪' and sub_content and not sub_content[0].isupper() and (sub_content[0].isalpha() or sub_content[0].isdigit()):
                 flag = True
             if '] ♪' in prev_sub_content or prev_sub_content.startswith('♪'):
                 flag = False
@@ -428,7 +428,7 @@ def convert_into_sentences(en_subs, phrases_duration_limit, join_lines_that_end_
                 flag = False
             if prev_sub_content and prev_sub_content[-1] in [',', ':']:
                 flag = True
-            if prev_sub_content.endswith('...') and ((sub_content[0].islower() and sub_content[0].isalpha()) or sub_content.startswith('...')):
+            if prev_sub_content.endswith('...') and ((sub_content and sub_content[0].islower() and sub_content[0].isalpha()) or sub_content.startswith('...')):
                 flag = True
 
             # print('FLAG:', flag)
@@ -558,8 +558,8 @@ def convert_into_phrases(en_subs, ru_subs, time_delta, phrases_duration_limit, i
         if ru_subs:
             sub2_content = ru_subs[i][2]
 
-        if not sub_content and not sub2_content:
-            continue
+        # if not sub_content and not sub2_content:
+        #     continue
 
         if is_gap_phrases and ( time_delta > 0 and len(subs) > 0 and (sub_start - prev_sub_end) < time_delta ):
             subs[-1].append((sub_start, sub_end, sub_content))
